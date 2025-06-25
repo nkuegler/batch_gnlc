@@ -50,7 +50,6 @@ for real_file in "$undistorted_dir"/*"$pattern"*_part-resReal_*_desc-undistorted
         mrcalc "$resComplex_file" -phase "$resPhase_file"
     else
         echo "Imaginary file not found for $real_file"
-        #/data/pt_02262/data/TH_bids/test_GNC_comparison/sub-004/ses-04/LORAKS/anat/wd_re_im/undistorted/*_part-resReal_*_desc-undistorted.nii
 
     fi
 done

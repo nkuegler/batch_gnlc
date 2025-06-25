@@ -179,12 +179,12 @@ done
 # Once done, output all results and check for errors. Remove temporary files.
 for i in "${!files[@]}"; do
     echo "========="
-    echo "Output for job $((i+1)):"
+    echo "stdout for job $((i+1)):"
     cat "${files[$i]}"
     
     # Check if there were any errors
     if [ -s "${error_files[$i]}" ]; then
-        echo "ERRORS for job $((i+1)):"
+        echo "stderr for job $((i+1)):"
         cat "${error_files[$i]}" >&2
     fi
     
