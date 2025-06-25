@@ -26,3 +26,10 @@ Scripts to run Gradient Nonlinearity correction on a batch of files using the HC
 - `runGNLC_re_im.sh` = main script
 - `MagPhase_to_ReIm.sh` = conversion to real and imaginary parts
 - `gnlc_jac_MagPhase` = run GNLC, do jacobian correction, conversion back to Mag and Phase
+
+
+### How to submit correction as SLURM jobs
+
+```
+./call_slurm_batch.sh -w -p "*loraksRsos*_MPM.nii" -o /data/pt_02262/data/TH_bids/testdata_Taechang/LORAKS/derivatives/LCPCA_distCorr/ /data/pt_02262/data/TH_bids/testdata_Taechang/LORAKS/derivatives/LCPCA/
+```

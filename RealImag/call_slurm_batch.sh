@@ -3,7 +3,7 @@
 # Script to cycle through a list of paths and submit SLURM jobs
 # using the slurm_gnlc_proc.sh script
 
-set -e
+# Note: Removed 'set -e' to prevent premature exit during continue statements
 
 usage() {
 echo \
@@ -186,14 +186,13 @@ for anat_path in "${anat_dirs[@]}"; do
         fi
         
         # Check if results already exist (look for *desc-undistortedJac.nii files)
-        existing_files=$(find "$target_output_dir" -name "*desc-undistortedJac.nii" 2>/dev/null | wc -l)
+        existing_files=$(find "$target_output_dir" -name "*desc-undistortedJac.nii" 2>/dev/null | wc -l || echo "0")
         if [[ $existing_files -gt 0 ]]; then
             echo "Skipping: Found $existing_files existing result files in $target_output_dir"
             ((skipped_sessions++))
             ((job_counter++))
             continue
         fi
-        
     else
         echo "Error: Could not extract subject/session from path: $anat_path"
         echo "This SLURM script is designed to work with a BIDS structure (sub-*/ses-*/anat/)."
@@ -238,7 +237,9 @@ done
 echo
 echo "=========================================="
 echo "Batch submission completed!"
-echo "Total sessions processed: ${#anat_dirs[@]}"
+echo "Total anat directories found: ${#anat_dirs[@]}"
+echo "Sessions skipped (already processed): $skipped_sessions"
+echo "Sessions submitted: $((${#anat_dirs[@]} - skipped_sessions))"
 if [[ "$dry_run" == "false" ]]; then
     echo "Check job status with: squeue -u \$USER"
     echo "Monitor logs in: $script_dir/logs/"
