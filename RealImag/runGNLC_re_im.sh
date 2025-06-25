@@ -157,14 +157,17 @@ contrasts=("MTw" "PDw" "T1w")
 # Parallelize GNLC jobs for each contrast
 pids=()
 files=()
+error_files=()
 
 echo ">>> Running GNLC for contrasts: ${contrasts[*]}"
 echo "!!! The terminal output will be hold back until all jobs are finished !!!"
 
 for contrast in "${contrasts[@]}"; do
     outfile=$(mktemp)
+    errorfile=$(mktemp)
     files+=("$outfile")
-    "$script_dir/gnlc_jac_MagPhase.sh" "$workingdir" "$workingdir/wd_$contrast" "$contrast" > "$outfile" & # redirect only stdout but not stderr
+    error_files+=("$errorfile")
+    "$script_dir/gnlc_jac_MagPhase.sh" "$workingdir" "$workingdir/wd_$contrast" "$contrast" > "$outfile" 2> "$errorfile" & # redirect only stdout and stderr to temporary files
     pids+=($!)
 done
 
@@ -173,11 +176,19 @@ for pid in "${pids[@]}"; do
     wait "$pid"
 done
 
-# Once done, output all results. Remove temporary files.
-for file in "${files[@]}"; do
-  echo "========="
-  cat "$file"
-  rm "$file"
+# Once done, output all results and check for errors. Remove temporary files.
+for i in "${!files[@]}"; do
+    echo "========="
+    echo "Output for job $((i+1)):"
+    cat "${files[$i]}"
+    
+    # Check if there were any errors
+    if [ -s "${error_files[$i]}" ]; then
+        echo "ERRORS for job $((i+1)):"
+        cat "${error_files[$i]}" >&2
+    fi
+    
+    rm -f "${files[$i]}" "${error_files[$i]}"
 done
 
 echo
