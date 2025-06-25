@@ -8,22 +8,34 @@ set -e
 usage() {
 echo \
 "
-$(basename $0): Cycles through specified paths and submits SLURM jobs for GNLC processing.
+$(basename $0): Automatically finds and submits SLURM jobs for GNLC processing on all anat directories within a BIDS-like structure.
 
 USAGE:
-    $(basename $0) [options] <path1> <path2> <path3> ...
+    $(basename $0) [options] <parent_directory>
 
 OPTIONS:
     -h | --help: print help text and exit
-    -w DIRECTORY | --workingdir DIRECTORY: working directory for output files
+    -o DIRECTORY | --output DIRECTORY: output directory for all results (optional)
+                                      If specified, creates BIDS structure: output/sub-xxx/ses-xx/anat/
+                                      If not specified, outputs directly to each anat directory
+    -w | --workingdir: use persistent working directories (not deleted after processing)
     -p PATTERN | --pattern PATTERN: file pattern to match (optional, default: *_MPM.nii)
-    -d SECONDS | --delay SECONDS: delay between job submissions in seconds (default: 5)
+    -d SECONDS | --delay SECONDS: delay between job submissions in seconds (default: 3)
     --dry-run: show commands that would be executed without actually submitting jobs
 
+DESCRIPTION:
+    The script searches for directories matching the pattern: parent_directory/sub-*/ses-*/anat/
+    and submits a SLURM job for each anat directory found. Working directories will be created
+    automatically within the output directory for each session.
+    
+    If -o is specified: Creates BIDS structure in output directory (output/sub-xxx/ses-xx/anat/)
+    If -o is not specified: Outputs directly to each input anat directory
+
 EXAMPLES:
-    $(basename $0) -w /tmp/gnlc_work /path/to/data1 /path/to/data2 /path/to/data3
-    $(basename $0) -w /tmp/gnlc_work -p '*_magnitude.nii' -d 10 /data/subject1 /data/subject2
-    $(basename $0) --dry-run -w /tmp/gnlc_work /path/to/data1 /path/to/data2
+    $(basename $0) /path/to/bids/dataset
+    $(basename $0) -o /tmp/gnlc_results /path/to/bids/dataset
+    $(basename $0) -o /tmp/gnlc_results -w -p '*_magnitude.nii' -d 10 /data/bids_root
+    $(basename $0) --dry-run -w /path/to/dataset
 
 AUTHOR:
     Niklas Kuegler (kuegler@cbs.mpg.de)
@@ -31,14 +43,22 @@ AUTHOR:
 }
 
 
-# TODO: currently the same working directory is used for all input paths
+
+# Key Features:
+# Error Checking: Validates that paths exist before submitting jobs
+# Progress Tracking: Shows which path is being processed (e.g., "Processing path 2/5")
+# Job Management: Includes delays between submissions to avoid overwhelming the scheduler
+# Dry Run Mode: Test your commands before actually submitting
+# Comprehensive Logging: Clear output showing what's happening
+# Automatic Directory Creation: Creates the working directory if it doesn't exist
 
 # Default parameters
-working_dir=""
+output_dir=""
+use_workingdir=false
 pattern=""
-delay=5
+delay=3
 dry_run=false
-paths=()
+parent_dir=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -47,9 +67,13 @@ while [[ $# -gt 0 ]]; do
             usage
             exit 0
             ;;
-        -w|--workingdir)
-            working_dir="$2"
+        -o|--output)
+            output_dir="$2"
             shift 2
+            ;;
+        -w|--workingdir)
+            use_workingdir=true
+            shift
             ;;
         -p|--pattern)
             pattern="$2"
@@ -69,31 +93,50 @@ while [[ $# -gt 0 ]]; do
             exit 1
             ;;
         *)
-            # Collect all remaining arguments as paths
-            paths+=("$1")
+            # Only accept one parent directory argument
+            if [[ -n "$parent_dir" ]]; then
+                echo "Error: Only one parent directory can be specified"
+                usage
+                exit 1
+            fi
+            parent_dir="$1"
             shift
             ;;
     esac
 done
 
 # Validation
-if [[ -z "$working_dir" ]]; then
-    echo "Error: Working directory (-w) is required"
+if [[ -z "$parent_dir" ]]; then
+    echo "Error: Parent directory must be specified"
     usage
     exit 1
 fi
 
-if [[ ${#paths[@]} -eq 0 ]]; then
-    echo "Error: At least one input path must be specified"
-    usage
+if [[ ! -d "$parent_dir" ]]; then
+    echo "Error: Parent directory does not exist: $parent_dir"
     exit 1
 fi
 
-# Check if working directory exists, create if it doesn't
-if [[ ! -d "$working_dir" ]]; then
-    echo "Creating working directory: $working_dir"
+# Find all anat directories in the BIDS-like structure
+echo "Searching for anat directories in: $parent_dir"
+anat_dirs=()
+while IFS= read -r -d '' anat_dir; do
+    anat_dirs+=("$anat_dir")
+done < <(find "$parent_dir" -type d -path "*/sub-*/ses-*/anat" -print0 2>/dev/null)
+
+if [[ ${#anat_dirs[@]} -eq 0 ]]; then
+    echo "Error: No anat directories found matching pattern: */sub-*/ses-*/anat"
+    echo "Please check that the parent directory contains the expected BIDS-like structure"
+    exit 1
+fi
+
+echo "Found ${#anat_dirs[@]} anat directories to process"
+
+# Check if output directory exists, create if it doesn't (only if specified)
+if [[ -n "$output_dir" && ! -d "$output_dir" ]]; then
+    echo "Creating output directory: $output_dir"
     if [[ "$dry_run" == "false" ]]; then
-        mkdir -p "$working_dir"
+        mkdir -p "$output_dir"
     fi
 fi
 
@@ -109,40 +152,69 @@ fi
 echo "=========================================="
 # echo "GNLC Batch Job Submission"
 # echo "=========================================="
-# echo "Working directory: $working_dir"
+# echo "Output directory: $output_dir"
+# echo "Use working directories: $use_workingdir"
 # echo "File pattern: ${pattern:-*_MPM.nii (default)}"
 # echo "Delay between submissions: ${delay}s"
-# echo "Number of paths to process: ${#paths[@]}"
+# echo "Number of anat directories to process: ${#anat_dirs[@]}"
 # echo "Dry run: $dry_run"
 # echo "=========================================="
 
 # Counter for job numbering
 job_counter=1
+skipped_sessions=0
 
-# Cycle through each path and submit SLURM job
-for input_path in "${paths[@]}"; do
+# Cycle through each anat directory and submit SLURM job
+for anat_path in "${anat_dirs[@]}"; do
     echo
-    echo "Processing path $job_counter/${#paths[@]}: $input_path"
+    echo "Processing anat directory $job_counter/${#anat_dirs[@]}: $anat_path"
     
-    # Check if input path exists
-    if [[ ! -d "$input_path" ]]; then
-        echo "Warning: Input path does not exist: $input_path"
-        echo "Skipping..."
-        ((job_counter++))
-        continue
+    # Extract subject and session from the path
+    if [[ $anat_path =~ .*(sub-[^/]+)/(ses-[^/]+)/anat.* ]]; then
+        subject="${BASH_REMATCH[1]}"
+        session="${BASH_REMATCH[2]}"
+        
+        # Determine the target output directory based on whether -o flag is used
+        if [[ -n "$output_dir" ]]; then
+            # BIDS structure in specified output directory
+            target_output_dir="$output_dir/$subject/$session/anat"
+            session_workdir="$target_output_dir/wd"
+        else
+            # Direct output to the input anat directory
+            target_output_dir="$anat_path"/dist_corr
+            session_workdir="$target_output_dir/wd"
+        fi
+        
+        # Check if results already exist (look for *desc-undistortedJac.nii files)
+        existing_files=$(find "$target_output_dir" -name "*desc-undistortedJac.nii" 2>/dev/null | wc -l)
+        if [[ $existing_files -gt 0 ]]; then
+            echo "Skipping: Found $existing_files existing result files in $target_output_dir"
+            ((skipped_sessions++))
+            ((job_counter++))
+            continue
+        fi
+        
+    else
+        echo "Error: Could not extract subject/session from path: $anat_path"
+        echo "This SLURM script is designed to work with a BIDS structure (sub-*/ses-*/anat/)."
+        echo "If you want to apply the correction to another session, you can run the runGNLC_re_im.sh script directly."
+        exit 1
     fi
     
     # Build command arguments
     CMD_ARGS=""
-    if [[ -n "$working_dir" ]]; then
-        CMD_ARGS="$CMD_ARGS -w \"$working_dir\""
+    if [[ -n "$output_dir" ]]; then
+        CMD_ARGS="$CMD_ARGS -o \"$target_output_dir\""
+    fi
+    if [[ "$use_workingdir" == "true" ]]; then
+        CMD_ARGS="$CMD_ARGS -w \"$session_workdir\""
     fi
     if [[ -n "$pattern" ]]; then
         CMD_ARGS="$CMD_ARGS -p \"$pattern\""
     fi
     
     # Prepare SLURM command
-    slurm_cmd="sbatch \"$slurm_script\" $CMD_ARGS \"$input_path\""
+    slurm_cmd="sbatch \"$slurm_script\" $CMD_ARGS \"$anat_path\""
     
     # echo "Command: $slurm_cmd"
     
@@ -152,7 +224,7 @@ for input_path in "${paths[@]}"; do
         echo "$out"
         
         # Add delay between submissions (except for the last job)
-        if [[ $job_counter -lt ${#paths[@]} ]]; then
+        if [[ $job_counter -lt ${#anat_dirs[@]} ]]; then
             echo "Waiting ${delay}s before next submission..."
             sleep "$delay"
         fi
@@ -166,7 +238,7 @@ done
 echo
 echo "=========================================="
 echo "Batch submission completed!"
-echo "Total paths processed: ${#paths[@]}"
+echo "Total sessions processed: ${#anat_dirs[@]}"
 if [[ "$dry_run" == "false" ]]; then
     echo "Check job status with: squeue -u \$USER"
     echo "Monitor logs in: $script_dir/logs/"
