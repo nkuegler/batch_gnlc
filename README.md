@@ -10,7 +10,7 @@ Scripts to run Gradient Nonlinearity correction on a batch of files using the HC
     - the qform_sform_adjustment is needed to account for the header changes when using sensitivity maps in the hMRI toolbox
 
 
-#### IronSleep (GNLC of Real and Imaginary parts of weighted images)
+### IronSleep (GNLC of Real and Imaginary parts of weighted images)
 - the scripts in `RealImag/` are used to create real and imaginary files from a batch of magnitude and phase images, and then apply gradient nonlinearity correction to each of those. After correction, they are turned back into magnitude and phase. 
 - Thereafter, they can be processed further.
 
@@ -19,3 +19,10 @@ Scripts to run Gradient Nonlinearity correction on a batch of files using the HC
     ```
     ./runGNLC_re_im.sh -p "*loraksRsos*_MPM.nii" -w /data/pt_02262/data/TH_bids/test_GNC_comparison/sub-004/ses-04/LORAKS/anat/wd_re_im /data/pt_02262/data/TH_bids/test_GNC_comparison/sub-004/ses-04/LORAKS/anat/
     ```
+
+#### file description in RealImag directory:
+- `call_slurm_batch.sh` = loop through multiple input paths and call slurm jobs
+- `slurm_gnlc_proc.sh` = submitted slurm script
+- `runGNLC_re_im.sh` = main script
+- `MagPhase_to_ReIm.sh` = conversion to real and imaginary parts
+- `gnlc_jac_MagPhase` = run GNLC, do jacobian correction, conversion back to Mag and Phase
