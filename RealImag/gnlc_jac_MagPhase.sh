@@ -32,8 +32,22 @@ echo "Applying jacobian modulation and calculating magnitude and phase for files
 for real_file in "$undistorted_dir"/*"$pattern"*_part-resReal_*_desc-undistorted.nii; do
     imag_file="${real_file/part-resReal/part-resImag}"
 
-    real_file_jac="${real_file/desc-undistorted/desc-undistortedJac}"
-    imag_file_jac="${imag_file/desc-undistorted/desc-undistortedJac}"
+    # Extract the suffix before _desc-undistorted (e.g., _MPM)
+    base_part="${real_file%_desc-undistorted*}" # remove everything from _desc-undistorted onwards
+    suffix="_${base_part##*_}" # extract the last part (e.g., _MPM)
+    
+    if [[ "$real_file" == *.nii.gz ]]; then
+        ext=".nii.gz"
+    else
+        ext=".nii"
+    fi
+
+    # Rebuild real_file with suffix moved after _desc-undistorted
+    real_file_adj="${real_file%${suffix}_desc-undistorted*}_desc-undistorted${suffix}${ext}"
+    imag_file_adj="${imag_file%${suffix}_desc-undistorted*}_desc-undistorted${suffix}${ext}"
+
+    real_file_jac="${real_file_adj/desc-undistorted/desc-undistortedJac}"
+    imag_file_jac="${imag_file_adj/desc-undistorted/desc-undistortedJac}"
     resComplex_file="${real_file_jac/part-resReal/part-resComplex}"
     resMag_file="${real_file_jac/part-resReal/part-mag}"
     resPhase_file="${real_file_jac/part-resReal/part-phase}"

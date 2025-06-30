@@ -207,14 +207,14 @@ mkdir -p "$output_dir"
 
 # Move the result files to the output directory
 echo "Moving magnitude and phase files to: $output_dir"
-find "$workingdir/undistorted" -type f -name "*part-mag*desc-undistortedJac.nii" -exec mv {} "$output_dir" \;
-find "$workingdir/undistorted" -type f -name "*part-phase*desc-undistortedJac.nii" -exec mv {} "$output_dir" \;
+find "$workingdir/undistorted" -type f -name "*part-mag*desc-undistortedJac*.nii" -exec mv {} "$output_dir" \;
+find "$workingdir/undistorted" -type f -name "*part-phase*desc-undistortedJac*.nii" -exec mv {} "$output_dir" \;
 
 
 ### TODO: better practice to keep the json with the nii file all the time
 # Copy and rename corresponding JSON files
 echo "Copying and renaming corresponding JSON files to: $output_dir"
-for nii_file in "$output_dir"/*desc-undistortedJac.nii; do
+for nii_file in "$output_dir"/*desc-undistortedJac*.nii; do
     base="${nii_file%.nii}"
     # Try to find the original json file (before GNLC processing)
     # Remove _desc-undistortedJac, then add .json
