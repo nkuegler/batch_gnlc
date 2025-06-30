@@ -213,8 +213,8 @@ for anat_path in "${anat_dirs[@]}"; do
     fi
     
     # Prepare SLURM command
-    slurm_cmd="sbatch \"$slurm_script\" $CMD_ARGS \"$anat_path\""
-    
+    slurm_cmd="sbatch -p short,group_servers,gr_weiskopf \"$slurm_script\" $CMD_ARGS \"$anat_path\""                
+
     # echo "Command: $slurm_cmd"
     
     if [[ "$dry_run" == "false" ]]; then
