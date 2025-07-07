@@ -12,8 +12,9 @@
 WORKING_DIR=""
 PATTERN=""
 OUTPUT_DIR=""
+DELETE_WORKDIR=false
 
-while getopts "w:p:o:" opt; do
+while getopts "w:p:o:d" opt; do
     case $opt in
         w)
             WORKING_DIR="$OPTARG"
@@ -24,6 +25,9 @@ while getopts "w:p:o:" opt; do
         o)
             OUTPUT_DIR="$OPTARG"
             ;;
+        d)
+            DELETE_WORKDIR=true
+            ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
             exit 1
@@ -31,23 +35,32 @@ while getopts "w:p:o:" opt; do
     esac
 done
 
-# Shift to get the remaining positional argument
+# Shift to get the remaining positional arguments
 shift $((OPTIND-1))
 
-# INPUT_DIR is the required positional argument
-INPUT_DIR=$1
+# SCANNER_NAME and INPUT_DIR are the required positional arguments
+SCANNER_NAME=$1
+INPUT_DIR=$2
+
+if [ -z "$SCANNER_NAME" ]; then
+    echo "Error: SCANNER_NAME is required"
+    echo "Usage: $0 [-w WORKING_DIR] [-p PATTERN] [-d] -o OUTPUT_DIR SCANNER_NAME INPUT_DIR"
+    exit 1
+fi
 
 if [ -z "$INPUT_DIR" ]; then
     echo "Error: INPUT_DIR is required"
-    echo "Usage: $0 [-w WORKING_DIR] [-p PATTERN] -o OUTPUT_DIR INPUT_DIR"
+    echo "Usage: $0 [-w WORKING_DIR] [-p PATTERN] [-d] -o OUTPUT_DIR SCANNER_NAME INPUT_DIR"
     exit 1
 fi
 
 if [ -z "$OUTPUT_DIR" ]; then
     echo "Error: OUTPUT_DIR (-o) is required"
-    echo "Usage: $0 [-w WORKING_DIR] [-p PATTERN] -o OUTPUT_DIR INPUT_DIR"
+    echo "Usage: $0 [-w WORKING_DIR] [-p PATTERN] [-d] -o OUTPUT_DIR SCANNER_NAME INPUT_DIR"
     exit 1
 fi
+
+# echo "Scanner: $SCANNER_NAME"
 
 # Output directory specified - create if needed
 # Extract subject and session from INPUT_DIR for session-specific output
@@ -73,9 +86,12 @@ fi
 if [ -n "$WORKING_DIR" ]; then
     CMD_ARGS="$CMD_ARGS -w \"$WORKING_DIR\""
 fi
+if [ "$DELETE_WORKDIR" = true ]; then
+    CMD_ARGS="$CMD_ARGS -d"
+fi
 # Always pass the determined output directory to runGNLC_re_im.sh
 CMD_ARGS="$CMD_ARGS -o \"$OUTPUT_DIR\""
 
 # Execute the command
 # use eval instead of ./ for dynamic command construction
-eval "./runGNLC_re_im.sh $CMD_ARGS \"$INPUT_DIR\""
+eval "./runGNLC_re_im.sh $CMD_ARGS \"$SCANNER_NAME\" \"$INPUT_DIR\""

@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Script to cycle through a list of paths and submit SLURM jobs
-# using the slurm_gnlc_proc.sh script
 
 # Note: Removed 'set -e' to prevent premature exit during continue statements
 
@@ -9,19 +7,25 @@ usage() {
 echo \
 "
 $(basename $0): Automatically finds and submits SLURM jobs for GNLC processing on all anat directories within a BIDS-like structure.
+It makes use of the slurm_gnlc_proc.sh script to process each anat directory found.
 
 USAGE:
-    $(basename $0) [options] <parent_directory>
+    $(basename $0) [options] <scanner_name> <parent_directory>
 
 OPTIONS:
     -h | --help: print help text and exit
     -o DIRECTORY | --output DIRECTORY: output directory for all results (optional)
                                       If specified, creates BIDS structure: output/sub-xxx/ses-xx/anat/
-                                      If not specified, outputs directly to each anat directory
+                                      If not specified, outputs directly to each anat directory in the input directory
     -w | --workingdir: use persistent working directories (not deleted after processing)
+    -d | --delete-workdir: delete working directory after processing
     -p PATTERN | --pattern PATTERN: file pattern to match (optional, default: *_MPM.nii)
-    -d SECONDS | --delay SECONDS: delay between job submissions in seconds (default: 3)
+    -t SECONDS | --delay SECONDS: delay between job submissions in seconds (default: 3)
     --dry-run: show commands that would be executed without actually submitting jobs
+
+ARGUMENTS:
+    scanner_name: Scanner/system name (Connectom, Prisma_fit, Skyra_fit, Verio, Magnetom7T, and Terra)
+    parent_directory: Parent directory containing BIDS-structured data
 
 DESCRIPTION:
     The script searches for directories matching the pattern: parent_directory/sub-*/ses-*/anat/
@@ -32,10 +36,10 @@ DESCRIPTION:
     If -o is not specified: Outputs directly to each input anat directory
 
 EXAMPLES:
-    $(basename $0) /path/to/bids/dataset
-    $(basename $0) -o /tmp/gnlc_results /path/to/bids/dataset
-    $(basename $0) -o /tmp/gnlc_results -w -p '*_magnitude.nii' -d 10 /data/bids_root
-    $(basename $0) --dry-run -w /path/to/dataset
+    $(basename $0) Terra /path/to/bids/dataset
+    $(basename $0) -o /tmp/gnlc_results Terra /path/to/bids/dataset
+    $(basename $0) -o /tmp/gnlc_results -w -p '*_magnitude.nii' -t 10 Prisma_fit /data/bids_root
+    $(basename $0) --dry-run -w -d Terra /path/to/dataset
 
 AUTHOR:
     Niklas Kuegler (kuegler@cbs.mpg.de)
@@ -55,9 +59,11 @@ AUTHOR:
 # Default parameters
 output_dir=""
 use_workingdir=false
+delete_workdir=false
 pattern=""
 delay=3
 dry_run=false
+scanner_name=""
 parent_dir=""
 
 # Parse command line arguments
@@ -75,11 +81,15 @@ while [[ $# -gt 0 ]]; do
             use_workingdir=true
             shift
             ;;
+        -d|--delete-workdir)
+            delete_workdir=true
+            shift
+            ;;
         -p|--pattern)
             pattern="$2"
             shift 2
             ;;
-        -d|--delay)
+        -t|--delay)
             delay="$2"
             shift 2
             ;;
@@ -93,19 +103,29 @@ while [[ $# -gt 0 ]]; do
             exit 1
             ;;
         *)
-            # Only accept one parent directory argument
-            if [[ -n "$parent_dir" ]]; then
-                echo "Error: Only one parent directory can be specified"
+            # Accept scanner_name first, then parent_directory
+            if [[ -z "$scanner_name" ]]; then
+                scanner_name="$1"
+                shift
+            elif [[ -z "$parent_dir" ]]; then
+                parent_dir="$1"
+                shift
+            else
+                echo "Error: Too many arguments specified"
                 usage
                 exit 1
             fi
-            parent_dir="$1"
-            shift
             ;;
     esac
 done
 
 # Validation
+if [[ -z "$scanner_name" ]]; then
+    echo "Error: Scanner name must be specified"
+    usage
+    exit 1
+fi
+
 if [[ -z "$parent_dir" ]]; then
     echo "Error: Parent directory must be specified"
     usage
@@ -208,12 +228,15 @@ for anat_path in "${anat_dirs[@]}"; do
     if [[ "$use_workingdir" == "true" ]]; then
         CMD_ARGS="$CMD_ARGS -w \"$session_workdir\""
     fi
+    if [[ "$delete_workdir" == "true" ]]; then
+        CMD_ARGS="$CMD_ARGS -d"
+    fi
     if [[ -n "$pattern" ]]; then
         CMD_ARGS="$CMD_ARGS -p \"$pattern\""
     fi
     
     # Prepare SLURM command
-    slurm_cmd="sbatch -p short,group_servers,gr_weiskopf \"$slurm_script\" $CMD_ARGS \"$anat_path\""                
+    slurm_cmd="sbatch -p short,group_servers,gr_weiskopf \"$slurm_script\" $CMD_ARGS \"$scanner_name\" \"$anat_path\""                
 
     # echo "Command: $slurm_cmd"
     

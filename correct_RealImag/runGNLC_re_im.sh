@@ -9,15 +9,17 @@ $(basename $0): Processes magnitude and phase image pairs using MagPhase_to_ReIm
 Cycles through a parent directory to find matching magnitude and phase files.
 
 USAGE:
-	$(basename $0) [options] <parent_directory>
+	$(basename $0) [options] <scanner_name> <parent_directory>
 
 INPUT:
-    Parent directory containing magnitude and phase NIfTI files.
+    scanner_name: Scanner/system name (Connectom, Prisma_fit, Skyra_fit, Verio, Magnetom7T, and Terra)
+    parent_directory: Parent directory containing magnitude and phase NIfTI files.
 
 OPTIONS:
 	-h | --help: print help text and exit
 	-p PATTERN | --pattern PATTERN: file pattern to match (default: *_MPM.nii)
 	-w DIRECTORY | --workingdir DIRECTORY: working directory for output files
+	-d | --delete-workdir: delete working directory after processing (overrides default behavior)
 	-o DIRECTORY | --output DIRECTORY: output directory for corrected magnitude files (default: <parent_directory>/corr_MagPh)
 
 AUTHOR:
@@ -29,6 +31,7 @@ AUTHOR:
 pattern="*_MPM.nii"
 workingdir=""
 output_dir=""
+delete_workdir=false
 
 # Give a hint if no arguments are provided
 if [ $# -eq 0 ]; then
@@ -38,7 +41,7 @@ if [ $# -eq 0 ]; then
 fi
 
 # Read optional command line arguments
-TEMP=$(getopt -o 'hp:w:o:' --long 'help,pattern:,workingdir:,output:' -n "$(basename $0)" -- "$@")
+TEMP=$(getopt -o 'hp:w:o:d' --long 'help,pattern:,workingdir:,output:,delete-workdir' -n "$(basename $0)" -- "$@")
 if [ $? -ne 0 ]; then
     echo "error: not all input arguments could be processed." >&2
     exit 1
@@ -67,6 +70,11 @@ while true; do
 			shift 2
 			continue
 		;;
+        '-d'|'--delete-workdir')
+            delete_workdir=true
+            shift
+            continue
+        ;;
         '-o'|'--output')
             output_dir="$2"
             shift 2
@@ -84,8 +92,8 @@ while true; do
 done
 
 # Check for mandatory positional argument
-if [ $# -lt 1 ]; then
-    echo "error: expected parent directory argument." >&2
+if [ $# -lt 2 ]; then
+    echo "error: expected scanner_name and parent_directory arguments." >&2
     echo "try the \"-h\" option for information on how to use \"$(basename $0)\"." >&2
     exit 1
 fi
@@ -98,9 +106,18 @@ if [ -z "$workingdir" ]; then
     echo "-------"
 fi
 
-parent_directory="$1"
+# Override clearwd if delete_workdir is true
+if [ "$delete_workdir" = true ]; then
+    clearwd=true
+    echo "Working directory will be deleted after processing (forced by -d flag)"
+fi
+
+scanner_name="$1"
+parent_directory="$2"
 script_dir=$(dirname "$0")
 re_im_creator="$script_dir/MagPhase_to_ReIm.sh"
+
+# echo "Scanner: $scanner_name"
 
 # Check if parent directory exists
 if [ ! -d "$parent_directory" ]; then
@@ -167,7 +184,7 @@ for contrast in "${contrasts[@]}"; do
     errorfile=$(mktemp)
     files+=("$outfile")
     error_files+=("$errorfile")
-    "$script_dir/gnlc_jac_MagPhase.sh" "$workingdir" "$workingdir/wd_$contrast" "$contrast" > "$outfile" 2> "$errorfile" & # redirect only stdout and stderr to temporary files
+    "$script_dir/gnlc_jac_MagPhase.sh" "$workingdir" "$workingdir/wd_$contrast" "$contrast" "$scanner_name" > "$outfile" 2> "$errorfile" & # redirect only stdout and stderr to temporary files
     pids+=($!)
 done
 

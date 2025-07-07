@@ -3,6 +3,7 @@
 input_dir=$1
 working_dir=$2
 pattern=$3
+scanner_name=$4
 
 FSL_VERSION=6.0.7.11 
 
@@ -10,6 +11,7 @@ fn_pattern=$input_dir/*$pattern*part-res*.nii # unique pattern of the real and i
 
 echo "input_dir: $input_dir"
 echo "working_dir: $working_dir"
+echo "scanner: $scanner_name"
 
 # make grad_unwarp environment available
 source ~/bash.conda
@@ -17,7 +19,7 @@ conda activate grad_unwarp
 
 echo "Running gradient nonlinearity correction on files matching:" 
 echo "$fn_pattern"
-FSL --version $FSL_VERSION /data/u_kuegler_software/git/gradient-nonlinearity-correction-scripts/runCorrection.sh -w $working_dir Terra $fn_pattern
+FSL --version $FSL_VERSION /data/u_kuegler_software/git/gradient-nonlinearity-correction-scripts/runCorrection.sh -w $working_dir $scanner_name $fn_pattern
 # will save the results in input_dir/undistorted
 echo
 
