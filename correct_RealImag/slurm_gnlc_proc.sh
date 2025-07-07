@@ -4,7 +4,7 @@
 #SBATCH -c 16					# 16 cores
 #SBATCH --mem 64G				# estimated 64G RAM
 #SBATCH --time 150				# estimated 100 minutes maximum
-#SBATCH -o /data/u_kuegler_software/git/batch_gnlc/RealImag/logs/%j.out	# redirect the output
+#SBATCH -o /data/u_kuegler_software/git/batch_gnlc/correct_RealImag/logs/%j.out	# redirect the output
 #
 # Real time consumption for (16 cores, 64G request) are about ....
 
