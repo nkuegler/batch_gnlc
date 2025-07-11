@@ -1,3 +1,4 @@
 template_scripts/
 correct_RealImag/logs/
 correct_qMRI_maps/logs/
+correct_MagOnly/batch_gnlc_mag_oldVersion.py
