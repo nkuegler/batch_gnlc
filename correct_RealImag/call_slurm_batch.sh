@@ -21,6 +21,9 @@ OPTIONS:
     -d | --delete-workdir: delete working directory after processing
     -p PATTERN | --pattern PATTERN: file pattern to match (optional, default: *_MPM.nii)
     -t SECONDS | --delay SECONDS: delay between job submissions in seconds (default: 3)
+    -sub SUBJECTS | --subjects SUBJECTS: comma-separated list (no spaces!) of subjects to process (e.g., sub-001,sub-002)
+    -ses SESSIONS | --sessions SESSIONS: comma-separated list (no spaces!) of sessions to process (e.g., ses-01,ses-02)
+                                        Note: -ses requires -sub to be specified
     --dry-run: show commands that would be executed without actually submitting jobs
 
 ARGUMENTS:
@@ -32,6 +35,10 @@ DESCRIPTION:
     and submits a SLURM job for each anat directory found. Working directories will be created
     automatically within the output directory for each session.
     
+    If -sub is specified, only processes the specified subjects. If -ses is also specified,
+    only processes the specified sessions for those subjects. Without these flags, processes
+    all subjects and sessions found.
+    
     If -o is specified: Creates BIDS structure in output directory (output/sub-xxx/ses-xx/anat/)
     If -o is not specified: Outputs directly to each input anat directory
 
@@ -39,6 +46,8 @@ EXAMPLES:
     $(basename $0) Terra /path/to/bids/dataset
     $(basename $0) -o /tmp/gnlc_results Terra /path/to/bids/dataset
     $(basename $0) -o /tmp/gnlc_results -w -p '*_magnitude.nii' -t 10 Prisma_fit /data/bids_root
+    $(basename $0) -sub \"sub-001,sub-002\" Terra /path/to/bids/dataset
+    $(basename $0) -sub \"sub-001\" -ses \"ses-01,ses-02\" -o /tmp/results Terra /path/to/bids/dataset
     $(basename $0) --dry-run -w -d Terra /path/to/dataset
 
 AUTHOR:
@@ -65,6 +74,8 @@ delay=3
 dry_run=false
 scanner_name=""
 parent_dir=""
+subjects=""
+sessions=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -91,6 +102,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--delay)
             delay="$2"
+            shift 2
+            ;;
+        -sub|--subjects)
+            subjects="$2"
+            shift 2
+            ;;
+        -ses|--sessions)
+            sessions="$2"
             shift 2
             ;;
         --dry-run)
@@ -137,6 +156,13 @@ if [[ ! -d "$parent_dir" ]]; then
     exit 1
 fi
 
+# Validate sessions flag usage
+if [[ -n "$sessions" && -z "$subjects" ]]; then
+    echo "Error: -ses/--sessions flag requires -sub/--subjects to be specified"
+    usage
+    exit 1
+fi
+
 # Validate scanner name
 valid_scanners=("Connectom" "Prisma_fit" "Skyra_fit" "Verio" "Magnetom7T" "Terra")
 scanner_valid=false
@@ -151,20 +177,75 @@ if [[ "$scanner_valid" == "false" ]]; then
     exit 1
 fi
 
+# Convert comma-separated subjects and sessions to arrays if specified
+if [[ -n "$subjects" ]]; then
+    IFS=',' read -ra subject_array <<< "$subjects"
+else
+    subject_array=()
+fi
+
+if [[ -n "$sessions" ]]; then
+    IFS=',' read -ra session_array <<< "$sessions"
+else
+    session_array=()
+fi
+
 # Find all anat directories in the BIDS-like structure
 echo "Searching for anat directories in: $parent_dir"
+if [[ ${#subject_array[@]} -gt 0 ]]; then
+    echo "Filtering for subjects: ${subject_array[*]}"
+    if [[ ${#session_array[@]} -gt 0 ]]; then
+        echo "Filtering for sessions: ${session_array[*]}"
+    fi
+fi
+
 anat_dirs=()
-while IFS= read -r -d '' anat_dir; do
-    anat_dirs+=("$anat_dir")
-done < <(find "$parent_dir" -type d -path "*/sub-*/ses-*/anat" -print0 2>/dev/null)
+
+if [[ ${#subject_array[@]} -eq 0 ]]; then
+    # No subject filter - find all anat directories
+    while IFS= read -r -d '' anat_dir; do
+        anat_dirs+=("$anat_dir")
+    done < <(find "$parent_dir" -type d -path "*/sub-*/ses-*/anat" -print0 2>/dev/null)
+else
+    # Filter by specified subjects and optionally sessions
+    for subject in "${subject_array[@]}"; do
+        if [[ ${#session_array[@]} -eq 0 ]]; then
+            # No session filter - find all sessions for this subject
+            while IFS= read -r -d '' anat_dir; do
+                anat_dirs+=("$anat_dir")
+            done < <(find "$parent_dir" -type d -path "*/${subject}/ses-*/anat" -print0 2>/dev/null)
+        else
+            # Filter by specific sessions for this subject
+            for session in "${session_array[@]}"; do
+                while IFS= read -r -d '' anat_dir; do
+                    anat_dirs+=("$anat_dir")
+                done < <(find "$parent_dir" -type d -path "*/${subject}/${session}/anat" -print0 2>/dev/null)
+            done
+        fi
+    done
+fi
 
 if [[ ${#anat_dirs[@]} -eq 0 ]]; then
-    echo "Error: No anat directories found matching pattern: */sub-*/ses-*/anat"
+    if [[ ${#subject_array[@]} -gt 0 ]]; then
+        echo "Error: No anat directories found for specified subjects/sessions"
+        echo "Subjects: ${subject_array[*]}"
+        if [[ ${#session_array[@]} -gt 0 ]]; then
+            echo "Sessions: ${session_array[*]}"
+        fi
+    else
+        echo "Error: No anat directories found matching pattern: */sub-*/ses-*/anat"
+    fi
     echo "Please check that the parent directory contains the expected BIDS-like structure"
     exit 1
 fi
 
 echo "Found ${#anat_dirs[@]} anat directories to process"
+if [[ ${#subject_array[@]} -gt 0 ]]; then
+    echo "Subjects filter: ${subject_array[*]}"
+    if [[ ${#session_array[@]} -gt 0 ]]; then
+        echo "Sessions filter: ${session_array[*]}"
+    fi
+fi
 
 # Check if output directory exists, create if it doesn't (only if specified)
 if [[ -n "$output_dir" && ! -d "$output_dir" ]]; then
