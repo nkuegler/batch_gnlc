@@ -137,6 +137,20 @@ if [[ ! -d "$parent_dir" ]]; then
     exit 1
 fi
 
+# Validate scanner name
+valid_scanners=("Connectom" "Prisma_fit" "Skyra_fit" "Verio" "Magnetom7T" "Terra")
+scanner_valid=false
+for valid in "${valid_scanners[@]}"; do
+    if [[ "$scanner_name" == "$valid" ]]; then
+        scanner_valid=true
+        break
+    fi
+done
+if [[ "$scanner_valid" == "false" ]]; then
+    echo "Error: Invalid scanner name '$scanner_name'. Must be one of: ${valid_scanners[*]}"
+    exit 1
+fi
+
 # Find all anat directories in the BIDS-like structure
 echo "Searching for anat directories in: $parent_dir"
 anat_dirs=()
