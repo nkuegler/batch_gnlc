@@ -31,7 +31,7 @@ Scripts to run Gradient Nonlinearity correction on a batch of files using the HC
 ### How to submit correction as SLURM jobs
 
 ```
-./call_slurm_batch.sh -w -p "*loraksRsos*_MPM.nii" -o /data/pt_02262/data/TH_bids/testdata_Taechang/LORAKS/derivatives/LCPCA_distCorr/ Terra /data/pt_02262/data/TH_bids/testdata_Taechang/LORAKS/derivatives/LCPCA/
+./call_slurm_batch.sh -w -d -p "*loraksRsos*_MPM.nii" -o /data/pt_02262/data/TH_bids/bids/derivatives/LORAKS_LCPCA_distCorr Terra /data/pt_02262/data/TH_bids/bids/derivatives/LORAKS_LCPCA/
 ```
 - The flag `-w` specifies that a working directory is created inside each session folder in the output directory. If it is not set, the script creates temporary directories in `/tmp`.
     - If `-w` is set, the working directory will not be deleted at the end of the processing unless the `-d` flag is also set.
@@ -55,3 +55,9 @@ examples:
 # With all options
 ./call_slurm_batch.sh -o /results -w -d -p '*_magnitude.nii' -t 10 Terra /path/to/bids/dataset
 ```
+
+
+
+# TODO:
+- in call bash scripts, you should be able to specify -sub and -ses to only run the script for single sessions instead of all in the bids directory
+- the script should also check for data that is already present in the target output directory
