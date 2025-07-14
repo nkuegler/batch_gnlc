@@ -15,11 +15,13 @@ USAGE:
 OPTIONS:
     -h | --help: print help text and exit
     -c CONTRASTS | --contrasts CONTRASTS: comma-separated list (no spaces!) of contrasts to process (default: PDw,T1w,MTw)
-    -p PATTERN | --pattern PATTERN: file pattern suffix to match (default: _MPM)
+    -p PATTERN | --pattern PATTERN: file pattern suffix to match (default: mag*_MPM)
     -t SECONDS | --delay SECONDS: delay between job submissions in seconds (default: 1)
     -sub SUBJECTS | --subjects SUBJECTS: comma-separated list (no spaces!) of subjects to process (e.g., sub-001,sub-002)
     -ses SESSIONS | --sessions SESSIONS: comma-separated list (no spaces!) of sessions to process (e.g., ses-01,ses-02)
                                         Note: -ses requires -sub to be specified
+    --nj | --no-jacobian: skip jacobian intensity correction (set this flag when correcting quantitative maps)
+    --d | --delete-workdir: delete working directories after processing
     --dry-run: show commands that would be executed without actually submitting jobs
 
 ARGUMENTS:
@@ -35,6 +37,8 @@ DESCRIPTION:
     If -sub is specified, only processes the specified subjects. If -ses is also specified,
     only processes the specified sessions for those subjects. Without these flags, processes
     all subjects and sessions found.
+
+    The script supports multiple contrasts and the jobs for the contrasts for each session run sequentially.
     
     Creates BIDS structure in output directory: output/sub-xxx/ses-xx/anat/
 
@@ -52,9 +56,11 @@ AUTHOR:
 
 # Default parameters
 contrasts="PDw,T1w,MTw"
-pattern="_MPM"
+pattern="mag*_MPM"
 delay=1
 dry_run=false
+no_jacobian=false
+delete_workdir=false
 scanner_name=""
 parent_dir=""
 output_dir=""
@@ -87,6 +93,14 @@ while [[ $# -gt 0 ]]; do
         -ses|--sessions)
             sessions="$2"
             shift 2
+            ;;
+        --nj|--no-jacobian)
+            no_jacobian=true
+            shift
+            ;;
+        --d|--delete-workdir)
+            delete_workdir=true
+            shift
             ;;
         --dry-run)
             dry_run=true
@@ -248,6 +262,8 @@ echo "Found ${#anat_dirs[@]} anat directories to process"
 echo "Contrasts to process: ${contrast_array[*]}"
 echo "Pattern: ${pattern}"
 echo "Scanner: ${scanner_name}"
+echo "Jacobian correction: $(if [[ "$no_jacobian" == "true" ]]; then echo "DISABLED"; else echo "ENABLED"; fi)"
+echo "Working directory cleanup: $(if [[ "$delete_workdir" == "true" ]]; then echo "ENABLED"; else echo "DISABLED"; fi)"
 if [[ ${#subject_array[@]} -gt 0 ]]; then
     echo "Subjects filter: ${subject_array[*]}"
     if [[ ${#session_array[@]} -gt 0 ]]; then
@@ -270,6 +286,9 @@ echo "=========================================="
 job_counter=1
 total_jobs=0
 skipped_jobs=0
+
+# Array to track job dependencies per subject/session
+declare -A session_last_job_id
 
 # Calculate total number of jobs
 for anat_path in "${anat_dirs[@]}"; do
@@ -325,14 +344,36 @@ for anat_path in "${anat_dirs[@]}"; do
                 mkdir -p "$working_dir_contrast"
             fi
             
-            # Prepare SLURM command
-            slurm_cmd="sbatch -p short,group_servers,gr_weiskopf \"$slurm_script\" \"$anat_path\" \"$working_dir_contrast\" \"$file_pattern\" \"$scanner_name\" \"$target_output_dir\""
+            # Create unique session identifier for dependency tracking
+            session_id="${subject}_${session}"
+            
+            # Prepare SLURM command with dependency if there's a previous job for this session
+            dependency_option=""
+            if [[ -n "${session_last_job_id[$session_id]}" ]]; then
+                dependency_option="--dependency=afterany:${session_last_job_id[$session_id]}"
+            fi
+            
+            slurm_cmd="sbatch -p short,group_servers,gr_weiskopf $dependency_option \"$slurm_script\" \"$anat_path\" \"$working_dir_contrast\" \"$file_pattern\" \"$scanner_name\" \"$target_output_dir\" \"$no_jacobian\" \"$delete_workdir\""
 
 
             if [[ "$dry_run" == "false" ]]; then
-                # Submit the job
+                # Submit the job and capture job ID
                 out=$(eval $slurm_cmd)
                 echo "    $out"
+                
+                # Extract job ID from sbatch output (format: "Submitted batch job JOBID")
+                if [[ $out =~ Submitted\ batch\ job\ ([0-9]+) ]]; then
+                    job_id="${BASH_REMATCH[1]}"
+                    if [[ -n "$dependency_option" ]]; then
+                        echo "    Job $job_id submitted with dependency on ${session_last_job_id[$session_id]}"
+                    else
+                        echo "    Job $job_id submitted (first job for $session_id)"
+                    fi
+                    # Update the last job ID for this session
+                    session_last_job_id[$session_id]="$job_id"
+                else
+                    echo "    Warning: Could not extract job ID from sbatch output"
+                fi
                 
                 # Add delay between submissions (except for the last job)
                 if [[ $job_counter -lt $total_jobs ]]; then
@@ -341,6 +382,13 @@ for anat_path in "${anat_dirs[@]}"; do
                 fi
             else
                 echo "    DRY RUN: Would submit job with command: $slurm_cmd"
+                if [[ -n "$dependency_option" ]]; then
+                    echo "    DRY RUN: Job would depend on previous job for session $session_id"
+                else
+                    echo "    DRY RUN: First job for session $session_id (no dependency)"
+                fi
+                # For dry run, simulate job ID
+                session_last_job_id[$session_id]="FAKE_JOB_ID_$job_counter"
             fi
             
             ((job_counter++))
@@ -359,6 +407,7 @@ echo "Batch submission completed!"
 echo "Total jobs expected: $total_jobs"
 echo "Jobs skipped (no matching files or output exists): $skipped_jobs"
 echo "Jobs submitted: $((total_jobs - skipped_jobs))"
+echo "Job dependencies: Contrasts for each session run sequentially"
 if [[ "$dry_run" == "false" ]]; then
     echo "Check job status with: squeue -u \$USER"
     echo "Monitor logs in: $script_dir/logs/"

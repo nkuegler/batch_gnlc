@@ -57,7 +57,21 @@ examples:
 ```
 
 
+### Magnitude only (3T)
+```
+./call_slurm_batch_magn.sh -sub sub-001 -ses ses-05 Prisma_fit /data/pt_02262/data/TH_bids/bids/derivatives/LCPCA/ /data/pt_02262/data/TH_bids/bids/derivatives/LCPCA_distCorr/
+# set -p flag if needed
+
+# --d to delete working dir
+./call_slurm_batch_magn.sh --d Prisma_fit /data/pt_02262/data/TH_bids/bids/derivatives/LCPCA/ /data/pt_02262/data/TH_bids/bids/derivatives/LCPCA_distCorr/
+```
 
 # TODO:
-- in call bash scripts, you should be able to specify -sub and -ses to only run the script for single sessions instead of all in the bids directory
-- the script should also check for data that is already present in the target output directory
+- correct_MagOnly: Move deletion of the undistorted directory in a separate job called after all contrasts are finished (then the jobs for the different contrasts can run in parallel)
+
+
+
+# Hints:
+- `correct_RealImag` uses pid to parallelize the processes (submit one slurm job that runs three parallel tasks, one for each contrast) -> in `runGNLC_re_im.sh`
+- `correct_MagOnly` submits one slurm job per contrast. However, to not accidentally deleting the working directories before all the jobs are finished, the specified contrasts run as sequential slurm jobs -> in `call_slurm_batch_magn.sh`
+- both approaches are not ideal -> best would be parallel slurm jobs with deletion of the working directory after all three are finished 
