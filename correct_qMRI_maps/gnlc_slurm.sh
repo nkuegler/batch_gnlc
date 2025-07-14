@@ -19,7 +19,7 @@ echo "input_dir: $input_dir"
 echo "working_dir: $working_dir"
 
 
-source ~/bash.preferences
+source ~/bash.conda
 conda activate grad_unwarp
 
 echo "Running gradient nonlinearity correction on files matching:" 

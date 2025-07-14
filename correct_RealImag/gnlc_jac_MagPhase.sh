@@ -31,7 +31,8 @@ if [ ! -d "$undistorted_dir" ]; then
 fi
 
 echo "Applying jacobian modulation and calculating magnitude and phase for files matching for $pattern files in: $undistorted_dir"
-for real_file in "$undistorted_dir"/*"$pattern"*_part-resReal_*_desc-undistorted.nii; do
+find "$undistorted_dir" -name "*${pattern}*_part-resReal_*_desc-undistorted.nii*" -print0 | \
+while IFS= read -r -d '' real_file; do
     imag_file="${real_file/part-resReal/part-resImag}"
 
     # Extract the suffix before _desc-undistorted (e.g., _MPM)
