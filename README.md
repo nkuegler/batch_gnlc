@@ -65,6 +65,8 @@ examples:
 # --d to delete working dir
 ./call_slurm_batch_magn.sh --d Prisma_fit /data/pt_02262/data/TH_bids/bids/derivatives/LCPCA/ /data/pt_02262/data/TH_bids/bids/derivatives/LCPCA_distCorr/
 ```
+- unzips the jacobian corrected data after the correction (fslmaths outputs .nii.gz files) -> the output files will always be .nii
+
 
 # TODO:
 - correct_MagOnly: Move deletion of the undistorted directory in a separate job called after all contrasts are finished (then the jobs for the different contrasts can run in parallel)
