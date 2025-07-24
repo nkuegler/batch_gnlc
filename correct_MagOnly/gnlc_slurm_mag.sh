@@ -60,7 +60,7 @@ else
     echo "    >>> Applying jacobian modulation."
 fi
 
-find "$undistorted_dir" -name "*${pattern}*_desc-undistorted.nii*" -print0 | \
+find "$undistorted_dir" -maxdepth 1 -type f -name "*${pattern}*_desc-undistorted.nii*" -print0 | \
 while IFS= read -r -d '' img_undistorted; do
     # Extract the suffix before _desc-undistorted (e.g., _MPM)
     base_part="${img_undistorted%_desc-undistorted*}" # remove everything from _desc-undistorted onwards

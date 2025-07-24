@@ -319,7 +319,7 @@ for anat_path in "${anat_dirs[@]}"; do
             file_pattern="${contrast}*${pattern}"
 
             # Check if files matching the pattern exist
-            files_found=$(find "$anat_path" -name "*$file_pattern*" -type f 2>/dev/null | wc -l)
+            files_found=$(find "$anat_path" -maxdepth 1 -type f -name "*$file_pattern*" 2>/dev/null | wc -l)
             if [[ $files_found -eq 0 ]]; then
                 echo "    WARNING: No files containing pattern '$file_pattern' found in $anat_path. Skipping."
                 ((skipped_jobs++))
@@ -330,7 +330,7 @@ for anat_path in "${anat_dirs[@]}"; do
             echo "    Found $files_found files containing pattern '$file_pattern'"
 
             # Check if output files already exist for this contrast
-            existing_output=$(find "$target_output_dir" -name "*${contrast}*" -type f 2>/dev/null | wc -l)
+            existing_output=$(find "$target_output_dir" -maxdepth 1 -type f -name "*${contrast}*" 2>/dev/null | wc -l)
             if [[ $existing_output -gt 0 ]]; then
                 echo "    INFO: Output files for contrast '$contrast' already exist in $target_output_dir. Skipping."
                 ((skipped_jobs++))

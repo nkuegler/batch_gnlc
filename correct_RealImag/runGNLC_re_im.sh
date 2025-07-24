@@ -135,7 +135,7 @@ fi
 # Find all magnitude files
 echo "----------"
 echo ">>> Searching for magnitude files in: $parent_directory"
-for mag_file in $(find "$parent_directory" -type f -name "*${pattern}*"); do
+for mag_file in $(find "$parent_directory" -maxdepth 1 -type f -name "*${pattern}*"); do
     if [[ "$(basename "$mag_file")" == *"part-mag"* ]]; then
 
         # Generate corresponding phase file name
@@ -224,14 +224,14 @@ mkdir -p "$output_dir"
 
 # Move the result files to the output directory
 echo "Moving magnitude and phase files to: $output_dir"
-find "$workingdir/undistorted" -type f -name "*part-mag*desc-undistortedJac*.nii" -exec mv {} "$output_dir" \;
-find "$workingdir/undistorted" -type f -name "*part-phase*desc-undistortedJac*.nii" -exec mv {} "$output_dir" \;
+find "$workingdir/undistorted" -maxdepth 1 -type f -name "*part-mag*desc-undistortedJac*.nii" -exec mv {} "$output_dir" \;
+find "$workingdir/undistorted" -maxdepth 1 -type f -name "*part-phase*desc-undistortedJac*.nii" -exec mv {} "$output_dir" \;
 
 
 ### TODO: better practice to keep the json with the nii file all the time
 # Copy and rename corresponding JSON files
 echo "Copying and renaming corresponding JSON files to: $output_dir"
-find "$output_dir" -name "*desc-undistortedJac*.nii" -print0 | \
+find "$output_dir" -maxdepth 1 -type f -name "*desc-undistortedJac*.nii" -print0 | \
 while IFS= read -r -d '' nii_file; do
     base="${nii_file%.nii}"
     # Try to find the original json file (before GNLC processing)
@@ -244,7 +244,7 @@ while IFS= read -r -d '' nii_file; do
         # to find the original json file, we need to account for this (and rename the json file while copying)
         orig_base="${orig_base/loraksRsos/loraks}"
     fi
-    json_file=$(find "$parent_directory" -type f -name "${orig_base}.json" | head -n 1)
+    json_file=$(find "$parent_directory" -maxdepth 1 -type f -name "${orig_base}.json" | head -n 1)
     if [[ -f "$json_file" ]]; then
         cp "$json_file" "${base}.json"
     fi
