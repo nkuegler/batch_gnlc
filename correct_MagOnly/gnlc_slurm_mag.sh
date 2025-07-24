@@ -2,7 +2,7 @@
 
 #
 #SBATCH -c 16					# 16 cores
-#SBATCH --mem 32				# estimated 32G RAM
+#SBATCH --mem 32G				# estimated 32G RAM
 #SBATCH --time 90				# estimated 90 minutes maximum
 #SBATCH -o /data/u_kuegler_software/git/batch_gnlc/correct_MagOnly/logs/%j.out	# redirect the output
 #
