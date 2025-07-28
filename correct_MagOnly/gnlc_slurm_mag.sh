@@ -87,8 +87,8 @@ while IFS= read -r -d '' img_undistorted; do
     # Copy corresponding JSON file to output_dir
     json_file="${img_undistorted%${ext}}.json"
     if [[ ! -f "$json_file" ]]; then
-        echo "Error: JSON file not found: $json_file"
-        exit 1
+        echo "Warning: JSON file not found: $json_file - skipping JSON copy for this file"
+        continue
     fi
     json_out="${img_undistorted_out%${ext}}.json"
     cp "$json_file" "$json_out"
