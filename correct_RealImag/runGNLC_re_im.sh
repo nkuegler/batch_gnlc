@@ -147,8 +147,38 @@ for mag_file in $(find "$parent_directory" -maxdepth 1 -type f -name "*${pattern
         fi
 
         phase_file="${tmp_fname/_part-mag/_part-phase}"
-        
+
+
         if [ -f "$phase_file" ]; then
+            # Check if corresponding JSON files already have NonlinearGradientCorrection = true
+            already_corrected=false
+            
+            # Check magnitude file JSON
+            if [[ "$mag_file" == *.nii.gz ]]; then
+                mag_json="${mag_file%.nii.gz}.json"
+            else
+                mag_json="${mag_file%.nii}.json"
+            fi
+            
+            # Check phase file JSON
+            if [[ "$phase_file" == *.nii.gz ]]; then
+                phase_json="${phase_file%.nii.gz}.json"
+            else
+                phase_json="${phase_file%.nii}.json"
+            fi
+            
+            # Check if either JSON file has NonlinearGradientCorrection = true
+            if [[ -f "$mag_json" ]] && jq -e '.NonlinearGradientCorrection == true' "$mag_json" >/dev/null 2>&1; then
+                echo "INFO: Magnitude file $(basename "$mag_file") already has NonlinearGradientCorrection=true. Skipping pair."
+                already_corrected=true
+                continue
+            elif [[ -f "$phase_json" ]] && jq -e '.NonlinearGradientCorrection == true' "$phase_json" >/dev/null 2>&1; then
+                echo "INFO: Phase file $(basename "$phase_file") already has NonlinearGradientCorrection=true. Skipping pair."
+                already_corrected=true
+                continue
+            fi
+            
+            # If not already corrected, process the pair
             echo "Processing pair:"
             echo "  Magnitude: $mag_file"
             echo "  Phase: $phase_file"
@@ -162,6 +192,18 @@ for mag_file in $(find "$parent_directory" -maxdepth 1 -type f -name "*${pattern
         fi
     fi
 done
+
+if [[ "$already_corrected" == "true" ]]; then
+    echo "Error: There was at least one file that already had been corrected for gradient nonlinearities (NonlinearGradientCorrection=true)."
+
+    if $clearwd; then
+        echo "Removing temporary files (don't specify -d to suppress this behavior for debugging purposes)"
+        rm -rf "$workingdir"
+    fi
+
+    echo "Exiting script as consistency cannot be assured. No files were corrected."
+    exit 0
+fi
 
 echo ">>> Real and Imag files created."
 echo "----------"
@@ -231,9 +273,14 @@ find "$workingdir/undistorted" -maxdepth 1 -type f -name "*part-phase*desc-undis
 ### TODO: better practice to keep the json with the nii file all the time
 # Copy and rename corresponding JSON files
 echo "Copying and renaming corresponding JSON files to: $output_dir"
-find "$output_dir" -maxdepth 1 -type f -name "*desc-undistortedJac*.nii" -print0 | \
-while IFS= read -r -d '' nii_file; do
+
+# Create temporary file list to avoid subshell issues with counter
+temp_nii_list=$(mktemp)
+find "$output_dir" -maxdepth 1 -type f -name "*desc-undistortedJac*.nii" > "$temp_nii_list"
+
+while IFS= read -r nii_file; do
     base="${nii_file%.nii}"
+    json_out="${base}.json"
     # Try to find the original json file (before GNLC processing)
     # Remove _desc-undistortedJac, then add .json
     orig_base=$(basename "$nii_file")
@@ -244,11 +291,28 @@ while IFS= read -r -d '' nii_file; do
         # to find the original json file, we need to account for this (and rename the json file while copying)
         orig_base="${orig_base/loraksRsos/loraks}"
     fi
+
     json_file=$(find "$parent_directory" -maxdepth 1 -type f -name "${orig_base}.json" | head -n 1)
     if [[ -f "$json_file" ]]; then
-        cp "$json_file" "${base}.json"
+        cp "$json_file" "$json_out"
+
+        # Update JSON file to reflect gradient nonlinearity correction
+        if [[ -f "$json_out" ]]; then
+            json_tmp="${json_out%.json}_tmp.json"
+            # Use jq to update the JSON file
+            if jq '.NonlinearGradientCorrection = true | .NonlinearGradientCorrectionType = "3D"' "$json_out" > "$json_tmp" 2>/dev/null; then
+                mv "$json_tmp" "$json_out"
+            else
+                echo "Warning: Failed to update JSON file: $json_out"
+                rm -f "$json_tmp"
+            fi
+        fi
     fi
-done
+done < "$temp_nii_list"
+
+# Clean up temporary file
+rm -f "$temp_nii_list"
+echo "Metadata updated in JSON files"
 
 # Remove the temporary files
 if $clearwd; then

@@ -77,3 +77,9 @@ examples:
 - `correct_RealImag` uses pid to parallelize the processes (submit one slurm job that runs three parallel tasks, one for each contrast) -> in `runGNLC_re_im.sh`
 - `correct_MagOnly` submits one slurm job per contrast. However, to not accidentally deleting the working directories before all the jobs are finished, the specified contrasts run as sequential slurm jobs -> in `call_slurm_batch_magn.sh`
 - both approaches are not ideal -> best would be parallel slurm jobs with deletion of the working directory after all three are finished 
+
+
+- before processing each corresponding JSON file is checked. The correction is aborted if the NonlinearGradientCorrection key in the corresponding JSON is true 
+    - The implementation of this feature is better in the MagOnly correction. Maybe adjust RealImag in a similar way. (would need quite a bit of adjustment of the file structure)
+
+- each JSON file is updated after the processing to reflect the corrected state of the image

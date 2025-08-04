@@ -41,6 +41,7 @@ DESCRIPTION:
     The script supports multiple contrasts and the jobs for the contrasts for each session run sequentially.
     
     Creates BIDS structure in output directory: output/sub-xxx/ses-xx/anat/
+    The metadata (JSON) of the processed images will be updated to reflect the gradient nonlinearity correction.
 
 EXAMPLES:
     $(basename $0) Prisma /data/input /data/output
@@ -317,17 +318,49 @@ for anat_path in "${anat_dirs[@]}"; do
             
             # Build pattern for this contrast
             file_pattern="${contrast}*${pattern}"
+            # Remove .nii or .nii.gz from file_pattern if present as it is explicitly added in the following find command
+            file_pattern=$(echo "$file_pattern" | sed 's/\.nii\.gz$//' | sed 's/\.nii$//')
 
-            # Check if files matching the pattern exist
-            files_found=$(find "$anat_path" -maxdepth 1 -type f -name "*$file_pattern*" 2>/dev/null | wc -l)
-            if [[ $files_found -eq 0 ]]; then
-                echo "    WARNING: No files containing pattern '$file_pattern' found in $anat_path. Skipping."
+            # Check if files matching the pattern exist and extract NIfTI files
+            nii_files=()
+            while IFS= read -r -d '' file; do
+                nii_files+=("$file")
+            done < <(find "$anat_path" -maxdepth 1 -type f \( -name "*${file_pattern}*.nii" -o -name "*${file_pattern}*.nii.gz" \) -print0 2>/dev/null)
+            
+            if [[ ${#nii_files[@]} -eq 0 ]]; then
+                echo "    WARNING: No NIfTI files containing pattern '$file_pattern' found in $anat_path. Skipping."
                 ((skipped_jobs++))
                 ((job_counter++))
                 continue
             fi
 
-            echo "    Found $files_found files containing pattern '$file_pattern'"
+            echo "    Found ${#nii_files[@]} NIfTI files containing pattern '$file_pattern'"
+            
+            # Check if corresponding JSON files already have NonlinearGradientCorrection = true
+            already_corrected=false
+            for nii_file in "${nii_files[@]}"; do
+                # Determine the JSON file path
+                if [[ "$nii_file" == *.nii.gz ]]; then
+                    json_file="${nii_file%.nii.gz}.json"
+                else
+                    json_file="${nii_file%.nii}.json"
+                fi
+                
+                if [[ -f "$json_file" ]]; then
+                    # Check if NonlinearGradientCorrection exists and is true
+                    if jq -e '.NonlinearGradientCorrection == true' "$json_file" >/dev/null 2>&1; then
+                        echo "    INFO: File $(basename "$nii_file") already has NonlinearGradientCorrection=true. Skipping contrast $contrast."
+                        already_corrected=true
+                        break
+                    fi
+                fi
+            done
+            
+            if [[ "$already_corrected" == "true" ]]; then
+                ((skipped_jobs++))
+                ((job_counter++))
+                continue
+            fi
 
             # Check if output files already exist for this contrast
             existing_output=$(find "$target_output_dir" -maxdepth 1 -type f -name "*${contrast}*" 2>/dev/null | wc -l)

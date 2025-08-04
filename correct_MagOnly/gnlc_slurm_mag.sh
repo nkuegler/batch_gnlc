@@ -6,7 +6,6 @@
 #SBATCH --time 90				# estimated 90 minutes maximum
 #SBATCH -o /data/u_kuegler_software/git/batch_gnlc/correct_MagOnly/logs/%j.out	# redirect the output
 #
-# Real time consumption for (16 cores, 64G request) are about ....
 
 input_dir=$1
 working_dir=$2
@@ -60,6 +59,9 @@ else
     echo "    >>> Applying jacobian modulation."
 fi
 
+# Counter for JSON files updated
+json_updated_count=0
+
 find "$undistorted_dir" -maxdepth 1 -type f -name "*${pattern}*_desc-undistorted.nii*" -print0 | \
 while IFS= read -r -d '' img_undistorted; do
     # Extract the suffix before _desc-undistorted (e.g., _MPM)
@@ -92,7 +94,21 @@ while IFS= read -r -d '' img_undistorted; do
     fi
     json_out="${img_undistorted_out%${ext}}.json"
     cp "$json_file" "$json_out"
+
+    # Update JSON file to reflect gradient nonlinearity correction
+    if [[ -f "$json_out" ]]; then
+        # Use jq to update the JSON file
+        if jq '.NonlinearGradientCorrection = true | .NonlinearGradientCorrectionType = "3D"' "$json_out" > "$json_out.tmp" 2>/dev/null; then
+            mv "$json_out.tmp" "$json_out"
+            ((json_updated_count++))
+        else
+            echo "Warning: Failed to update JSON file: $json_out"
+            rm -f "$json_out.tmp"
+        fi
+    fi
+
 done
+echo "Metadata updated in $json_updated_count JSON files"
 
 # Remove the working directory if requested
 if [[ "$delete_working_dir" == "true" ]]; then

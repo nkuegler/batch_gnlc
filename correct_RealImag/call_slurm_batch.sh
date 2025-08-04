@@ -42,6 +42,8 @@ DESCRIPTION:
     If -o is specified: Creates BIDS structure in output directory (output/sub-xxx/ses-xx/anat/)
     If -o is not specified: Outputs directly to each input anat directory
 
+    The metadata (JSON) of the processed images will be updated to reflect the gradient nonlinearity correction.
+
 EXAMPLES:
     $(basename $0) Terra /path/to/bids/dataset
     $(basename $0) -o /tmp/gnlc_results Terra /path/to/bids/dataset
