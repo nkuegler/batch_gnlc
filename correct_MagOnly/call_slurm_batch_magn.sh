@@ -22,6 +22,7 @@ OPTIONS:
                                         Note: -ses requires -sub to be specified
     --nj | --no-jacobian: skip jacobian intensity correction (set this flag when correcting quantitative maps)
     --d | --delete-workdir: delete working directories after processing
+    -dep JOBID | --dependency JOBID: submit all jobs with dependency on successful completion of the specified job ID
     --dry-run: show commands that would be executed without actually submitting jobs
 
 ARGUMENTS:
@@ -49,6 +50,7 @@ EXAMPLES:
     $(basename $0) -sub \"sub-001,sub-002\" Prisma /data/input /data/output
     $(basename $0) -sub \"sub-001\" -ses \"ses-01,ses-02\" Terra /data/input /data/output
     $(basename $0) --dry-run -t 10 Prisma_fit /data/input /data/output
+    $(basename $0) -dep 12345 Prisma /data/input /data/output
 
 AUTHOR:
     Niklas Kuegler (kuegler@cbs.mpg.de)
@@ -67,6 +69,7 @@ parent_dir=""
 output_dir=""
 subjects=""
 sessions=""
+dependency_job_id=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -102,6 +105,10 @@ while [[ $# -gt 0 ]]; do
         --d|--delete-workdir)
             delete_workdir=true
             shift
+            ;;
+        -dep|--dependency)
+            dependency_job_id="$2"
+            shift 2
             ;;
         --dry-run)
             dry_run=true
@@ -265,6 +272,9 @@ echo "Pattern: ${pattern}"
 echo "Scanner: ${scanner_name}"
 echo "Jacobian correction: $(if [[ "$no_jacobian" == "true" ]]; then echo "DISABLED"; else echo "ENABLED"; fi)"
 echo "Working directory cleanup: $(if [[ "$delete_workdir" == "true" ]]; then echo "ENABLED"; else echo "DISABLED"; fi)"
+if [[ -n "$dependency_job_id" ]]; then
+    echo "Global job dependency: $dependency_job_id"
+fi
 if [[ ${#subject_array[@]} -gt 0 ]]; then
     echo "Subjects filter: ${subject_array[*]}"
     if [[ ${#session_array[@]} -gt 0 ]]; then
@@ -380,9 +390,18 @@ for anat_path in "${anat_dirs[@]}"; do
             # Create unique session identifier for dependency tracking
             session_id="${subject}_${session}"
             
-            # Prepare SLURM command with dependency if there's a previous job for this session
+            # Prepare SLURM command with dependency
             dependency_option=""
-            if [[ -n "${session_last_job_id[$session_id]}" ]]; then
+            if [[ -n "$dependency_job_id" ]]; then
+                # Global dependency specified - use it for the first job of each session
+                if [[ -z "${session_last_job_id[$session_id]}" ]]; then
+                    dependency_option="--dependency=afterok:$dependency_job_id"
+                else
+                    # Chain dependencies: global job -> previous session job -> current job
+                    dependency_option="--dependency=afterany:${session_last_job_id[$session_id]}"
+                fi
+            elif [[ -n "${session_last_job_id[$session_id]}" ]]; then
+                # No global dependency, but there's a previous job for this session
                 dependency_option="--dependency=afterany:${session_last_job_id[$session_id]}"
             fi
             
@@ -397,7 +416,9 @@ for anat_path in "${anat_dirs[@]}"; do
                 # Extract job ID from sbatch output (format: "Submitted batch job JOBID")
                 if [[ $out =~ Submitted\ batch\ job\ ([0-9]+) ]]; then
                     job_id="${BASH_REMATCH[1]}"
-                    if [[ -n "$dependency_option" ]]; then
+                    if [[ -n "$dependency_job_id" && -z "${session_last_job_id[$session_id]}" ]]; then
+                        echo "    Job $job_id submitted with dependency on global job $dependency_job_id"
+                    elif [[ -n "$dependency_option" ]]; then
                         echo "    Job $job_id submitted with dependency on ${session_last_job_id[$session_id]}"
                     else
                         echo "    Job $job_id submitted (first job for $session_id)"
@@ -415,7 +436,9 @@ for anat_path in "${anat_dirs[@]}"; do
                 fi
             else
                 echo "    DRY RUN: Would submit job with command: $slurm_cmd"
-                if [[ -n "$dependency_option" ]]; then
+                if [[ -n "$dependency_job_id" && -z "${session_last_job_id[$session_id]}" ]]; then
+                    echo "    DRY RUN: Job would depend on global job $dependency_job_id"
+                elif [[ -n "$dependency_option" ]]; then
                     echo "    DRY RUN: Job would depend on previous job for session $session_id"
                 else
                     echo "    DRY RUN: First job for session $session_id (no dependency)"
