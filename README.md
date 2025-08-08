@@ -83,3 +83,5 @@ examples:
     - The implementation of this feature is better in the MagOnly correction. Maybe adjust RealImag in a similar way. (would need quite a bit of adjustment of the file structure)
 
 - each JSON file is updated after the processing to reflect the corrected state of the image
+
+- some more arguments were added for this script (mostly to account for specific needs of the R2 processing workflow): -dep -job-name -log

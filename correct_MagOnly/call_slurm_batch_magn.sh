@@ -20,10 +20,13 @@ OPTIONS:
     -sub SUBJECTS | --subjects SUBJECTS: comma-separated list (no spaces!) of subjects to process (e.g., sub-001,sub-002)
     -ses SESSIONS | --sessions SESSIONS: comma-separated list (no spaces!) of sessions to process (e.g., ses-01,ses-02)
                                         Note: -ses requires -sub to be specified
+    -dep JOBID | --dependency JOBID: submit all jobs with dependency on successful completion of the specified job ID
+    -job-name JOBNAME: specify a custom job name for the submitted job (only valid when submitting a single job)
+    -log LOGFILEDIR | --logfiledir LOGFILEDIR: specify a custom log directory for SLURM job output (make sure to include a trailing slash, e.g., /path/to/logs/)
     --nj | --no-jacobian: skip jacobian intensity correction (set this flag when correcting quantitative maps)
     --d | --delete-workdir: delete working directories after processing
-    -dep JOBID | --dependency JOBID: submit all jobs with dependency on successful completion of the specified job ID
     --dry-run: show commands that would be executed without actually submitting jobs
+
 
 ARGUMENTS:
     scanner_name: Scanner/system name (Connectom, Prisma_fit, Skyra_fit, Verio, Magnetom7T, Terra, etc.)
@@ -51,6 +54,8 @@ EXAMPLES:
     $(basename $0) -sub \"sub-001\" -ses \"ses-01,ses-02\" Terra /data/input /data/output
     $(basename $0) --dry-run -t 10 Prisma_fit /data/input /data/output
     $(basename $0) -dep 12345 Prisma /data/input /data/output
+    $(basename $0) -sub \"sub-001\" -ses \"ses-01\" -c \"PDw\" -job-name custom_job Prisma /data/input /data/output
+    $(basename $0) -sub \"sub-001\" -ses \"ses-01\" -c \"PDw\" -log /path/to/logs/ Prisma /data/input /data/output
 
 AUTHOR:
     Niklas Kuegler (kuegler@cbs.mpg.de)
@@ -70,6 +75,8 @@ output_dir=""
 subjects=""
 sessions=""
 dependency_job_id=""
+custom_job_name=""
+custom_log_dir=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -108,6 +115,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         -dep|--dependency)
             dependency_job_id="$2"
+            shift 2
+            ;;
+        -job-name)
+            custom_job_name="$2"
+            shift 2
+            ;;
+        -log|--logfiledir)
+            custom_log_dir="$2"
             shift 2
             ;;
         --dry-run)
@@ -184,6 +199,16 @@ if [[ "$scanner_valid" == "false" ]]; then
     exit 1
 fi
 
+# Validate custom log directory if specified
+if [[ -n "$custom_log_dir" ]]; then
+    # Extract directory path by removing the last / and everything after it
+    log_dir_path="${custom_log_dir%/*}/"
+    if [[ ! -d "$log_dir_path" ]]; then
+        echo "Error: Log directory does not exist: $log_dir_path"
+        exit 1
+    fi
+fi
+
 # Convert comma-separated contrasts to array
 IFS=',' read -ra contrast_array <<< "$contrasts"
 
@@ -232,7 +257,7 @@ if [[ ${#subject_array[@]} -eq 0 ]]; then
     # No subject filter - find all anat directories
     while IFS= read -r -d '' anat_dir; do
         anat_dirs+=("$anat_dir")
-    done < <(find "$parent_dir" -type d -path "*/sub-*/ses-*/anat" -print0 2>/dev/null)
+    done < <(find "$parent_dir" -maxdepth 3 -type d -path "*/sub-*/ses-*/anat" -print0 2>/dev/null)
 else
     # Filter by specified subjects and optionally sessions
     for subject in "${subject_array[@]}"; do
@@ -240,13 +265,13 @@ else
             # No session filter - find all sessions for this subject
             while IFS= read -r -d '' anat_dir; do
                 anat_dirs+=("$anat_dir")
-            done < <(find "$parent_dir" -type d -path "*/${subject}/ses-*/anat" -print0 2>/dev/null)
+            done < <(find "$parent_dir" -maxdepth 3 -type d -path "*/${subject}/ses-*/anat" -print0 2>/dev/null)
         else
             # Filter by specific sessions for this subject
             for session in "${session_array[@]}"; do
                 while IFS= read -r -d '' anat_dir; do
                     anat_dirs+=("$anat_dir")
-                done < <(find "$parent_dir" -type d -path "*/${subject}/${session}/anat" -print0 2>/dev/null)
+                done < <(find "$parent_dir" -maxdepth 3 -type d -path "*/${subject}/${session}/anat" -print0 2>/dev/null)
             done
         fi
     done
@@ -305,6 +330,14 @@ declare -A session_last_job_id
 for anat_path in "${anat_dirs[@]}"; do
     total_jobs=$((total_jobs + ${#contrast_array[@]}))
 done
+
+# Validate custom job name usage
+if [[ -n "$custom_job_name" && $total_jobs -gt 1 ]]; then
+    echo "Error: -job-name can only be used when submitting a single job"
+    echo "Current configuration would submit $total_jobs jobs"
+    echo "Please use subject/session/contrast filters to limit to a single job, or remove -job-name"
+    exit 1
+fi
 
 # Cycle through each anat directory and submit SLURM jobs
 for anat_path in "${anat_dirs[@]}"; do
@@ -405,7 +438,14 @@ for anat_path in "${anat_dirs[@]}"; do
                 dependency_option="--dependency=afterany:${session_last_job_id[$session_id]}"
             fi
             
-            slurm_cmd="sbatch -p short,group_servers,gr_weiskopf $dependency_option \"$slurm_script\" \"$anat_path\" \"$working_dir_contrast\" \"$file_pattern\" \"$scanner_name\" \"$target_output_dir\" \"$no_jacobian\" \"$delete_workdir\""
+            slurm_cmd="sbatch -p short,group_servers,gr_weiskopf"
+            if [[ -n "$custom_job_name" ]]; then
+                slurm_cmd="$slurm_cmd --job-name=$custom_job_name"
+            fi
+            if [[ -n "$custom_log_dir" ]]; then
+                slurm_cmd="$slurm_cmd -o ${custom_log_dir}%j.out"
+            fi
+            slurm_cmd="$slurm_cmd $dependency_option \"$slurm_script\" \"$anat_path\" \"$working_dir_contrast\" \"$file_pattern\" \"$scanner_name\" \"$target_output_dir\" \"$no_jacobian\" \"$delete_workdir\""
 
 
             if [[ "$dry_run" == "false" ]]; then
@@ -416,12 +456,16 @@ for anat_path in "${anat_dirs[@]}"; do
                 # Extract job ID from sbatch output (format: "Submitted batch job JOBID")
                 if [[ $out =~ Submitted\ batch\ job\ ([0-9]+) ]]; then
                     job_id="${BASH_REMATCH[1]}"
+                    job_msg="Job $job_id"
+                    if [[ -n "$custom_job_name" ]]; then
+                        job_msg="$job_msg (name: $custom_job_name)"
+                    fi
                     if [[ -n "$dependency_job_id" && -z "${session_last_job_id[$session_id]}" ]]; then
-                        echo "    Job $job_id submitted with dependency on global job $dependency_job_id"
+                        echo "    $job_msg submitted with dependency on global job $dependency_job_id"
                     elif [[ -n "$dependency_option" ]]; then
-                        echo "    Job $job_id submitted with dependency on ${session_last_job_id[$session_id]}"
+                        echo "    $job_msg submitted with dependency on ${session_last_job_id[$session_id]}"
                     else
-                        echo "    Job $job_id submitted (first job for $session_id)"
+                        echo "    $job_msg submitted (first job for $session_id)"
                     fi
                     # Update the last job ID for this session
                     session_last_job_id[$session_id]="$job_id"
@@ -436,6 +480,12 @@ for anat_path in "${anat_dirs[@]}"; do
                 fi
             else
                 echo "    DRY RUN: Would submit job with command: $slurm_cmd"
+                if [[ -n "$custom_job_name" ]]; then
+                    echo "    DRY RUN: Job would have custom name: $custom_job_name"
+                fi
+                if [[ -n "$custom_log_dir" ]]; then
+                    echo "    DRY RUN: Job would use custom log directory: ${custom_log_dir}%j.out"
+                fi
                 if [[ -n "$dependency_job_id" && -z "${session_last_job_id[$session_id]}" ]]; then
                     echo "    DRY RUN: Job would depend on global job $dependency_job_id"
                 elif [[ -n "$dependency_option" ]]; then
