@@ -274,7 +274,7 @@ find "$workingdir/undistorted" -maxdepth 1 -type f -name "*part-phase*desc-undis
 # Copy and rename corresponding JSON files
 echo "Copying and renaming corresponding JSON files to: $output_dir"
 
-# Create temporary file list to avoid subshell issues with counter
+# Create temporary file list
 temp_nii_list=$(mktemp)
 find "$output_dir" -maxdepth 1 -type f -name "*desc-undistortedJac*.nii" > "$temp_nii_list"
 
@@ -302,6 +302,7 @@ while IFS= read -r nii_file; do
             # Use jq to update the JSON file
             if jq '.NonlinearGradientCorrection = true | .NonlinearGradientCorrectionType = "3D"' "$json_out" > "$json_tmp" 2>/dev/null; then
                 mv "$json_tmp" "$json_out"
+                echo ">>> Updated metadata of JSON file: $(basename "$json_out" .json)"
             else
                 echo "Warning: Failed to update JSON file: $json_out"
                 rm -f "$json_tmp"

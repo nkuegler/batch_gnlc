@@ -59,8 +59,8 @@ else
     echo "    >>> Applying jacobian modulation."
 fi
 
-# Counter for JSON files updated
-json_updated_count=0
+# Rename files correctly and copy corresponding JSON files
+echo ">>> Renaming files and copying JSON files to output directory: $output_dir"
 
 find "$undistorted_dir" -maxdepth 1 -type f -name "*${pattern}*_desc-undistorted.nii*" -print0 | \
 while IFS= read -r -d '' img_undistorted; do
@@ -100,7 +100,7 @@ while IFS= read -r -d '' img_undistorted; do
         # Use jq to update the JSON file
         if jq '.NonlinearGradientCorrection = true | .NonlinearGradientCorrectionType = "3D"' "$json_out" > "$json_out.tmp" 2>/dev/null; then
             mv "$json_out.tmp" "$json_out"
-            ((json_updated_count++))
+            echo "    >>> Updated metadata of JSON file: $(basename "$json_out" .json)"
         else
             echo "Warning: Failed to update JSON file: $json_out"
             rm -f "$json_out.tmp"
@@ -108,7 +108,6 @@ while IFS= read -r -d '' img_undistorted; do
     fi
 
 done
-echo "Metadata updated in $json_updated_count JSON files"
 
 # Remove the working directory if requested
 if [[ "$delete_working_dir" == "true" ]]; then
