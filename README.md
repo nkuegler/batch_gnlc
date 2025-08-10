@@ -70,7 +70,17 @@ examples:
 
 # TODO:
 - correct_MagOnly: Move deletion of the undistorted directory in a separate job called after all contrasts are finished (then the jobs for the different contrasts can run in parallel)
+- for GNLC of AFI and SMAP acquisitions, you can use the scripts in the correct_MagOnly directory. However, the script only looks for files in the anat/ directory. This must be adjusted from anat to fmap → maybe use a flag in the script.
+- container usage needs to be implemented for ReIm correction (container as optional argument and replace `FSL ...` command with just the fsl function calls as in MagOnly)
 
+
+- **Containerization does not work at the moment**
+- commented out for now!
+- container path as optional argument (for now only in MagOnly correction) -> if specified, the whole SLURM job runs in the container
+    - if not, the script runs on the CBS infrastructure with the usual software environments (`sc fsl VERSION`)
+- `grad_unwarp` conda env must be created and initialized correctly in the container
+    - instead of activating the `mri_tools_env`, for the GNLC, we need to activate the `grad_unwarp` env, combine them, or create a separate container
+- additionally, the script path is currently hard-coded as $0 does not work inside the container (not the best way to do this)
 
 
 # Hints:

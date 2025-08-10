@@ -14,27 +14,61 @@ scanner_name=$4
 output_dir=$5
 skip_jacobian=$6 # if true, jacobian modulation will be skipped
 delete_working_dir=$7 # if true, the working directory will be deleted after processing
+container_path=$8 # optional: path to singularity container
 
 
-FSL_VERSION=6.0.7.11
+FSL_VERSION=6.0.6 # only relevant if running on the host system
 fn_pattern=$input_dir/*$pattern*.nii
 GNLC_SCRIPT=/data/u_kuegler_software/git/gradient-nonlinearity-correction-scripts/runCorrection.sh
 
+# Specify the absolute path of this script (for re-executing the script inside the container)
+SCRIPT_PATH="/data/u_kuegler_software/git/batch_gnlc/correct_MagOnly/gnlc_slurm_mag.sh"
 
-echo "input_dir: $input_dir"
-echo "working_dir: $working_dir"
-echo "skip_jacobian: $skip_jacobian"
-echo "delete_working_dir: $delete_working_dir"
+if [[ "$container_path" != "--inside-container" ]]; then
+    echo "input_dir: $input_dir"
+    echo "working_dir: $working_dir"
+    echo "skip_jacobian: $skip_jacobian"
+    echo "delete_working_dir: $delete_working_dir"
+    echo "container_path: $container_path"
+    echo "--------------"
+fi
 
+# If container path is specified, run the entire script inside singularity
+if [[ -n "$container_path" && "$container_path" != "--inside-container" ]]; then
+    echo "SCRIPT_PATH: $SCRIPT_PATH"
+    echo ">>> Running script inside singularity container: $container_path"
+    # Re-execute this script inside the container with a special flag to indicate container execution
+    singularity exec "$container_path" "$SCRIPT_PATH" "$input_dir" "$working_dir" "$pattern" "$scanner_name" "$output_dir" "$skip_jacobian" "$delete_working_dir" "--inside-container"
+    exit $?
+fi
 
-# make grad_unwarp environment available
-source ~/bash.conda
-conda activate grad_unwarp
+# Check if we're running inside container (indicated by the special flag)
+inside_container=false
+if [[ "$container_path" == "--inside-container" ]]; then
+    inside_container=true
+    echo ">>> Running inside singularity container"
+else
+    echo ">>> Running on host system"
+fi
+
+# Set FSL command prefix based on execution environment
+if [[ "$inside_container" == "true" ]]; then
+    FSL_CMD=""  # No FSL version prefix needed in container
+else
+    FSL_CMD="sc fsl $FSL_VERSION"  # Use FSL version on host
+fi
+
+# make grad_unwarp environment available (only on host)
+# TODO: this conda environment properties must be added to the environment in the container as well
+if [[ "$inside_container" == "false" ]]; then
+    source ~/bash.conda
+    conda activate grad_unwarp
+fi
 
 
 echo ">>> Running gradient nonlinearity correction on files matching:" 
 echo "$fn_pattern"
-FSL --version $FSL_VERSION $GNLC_SCRIPT -w $working_dir $scanner_name $fn_pattern
+$FSL_CMD $GNLC_SCRIPT -w $working_dir $scanner_name $fn_pattern
 # will save the results in input_dir/undistorted
 echo "Done"
 echo
@@ -82,7 +116,7 @@ while IFS= read -r -d '' img_undistorted; do
     else
         img_undistorted_out="${img_undistorted_out/desc-undistorted/desc-undistortedJac}"
         # Apply jacobian intensity correction
-        FSL --version $FSL_VERSION fslmaths "$img_undistorted" -mul $working_dir/warp_jacobian.nii.gz "$img_undistorted_out"
+        $FSL_CMD fslmaths "$img_undistorted" -mul $working_dir/warp_jacobian.nii.gz "$img_undistorted_out"
         gunzip "$img_undistorted_out" 2>/dev/null || true
     fi
 
