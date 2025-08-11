@@ -77,10 +77,10 @@ examples:
 - **Containerization does not work at the moment**
 - commented out for now!
 - container path as optional argument (for now only in MagOnly correction) -> if specified, the whole SLURM job runs in the container
-    - if not, the script runs on the CBS infrastructure with the usual software environments (`sc fsl VERSION`)
+    - if not, the script runs on the CBS infrastructure with the usual software environments (`FSL --version VERSION` environment as the singularity wrapper `SCWRAP fsl VERSION` does initialize on the SLURM cluster)
 - `grad_unwarp` conda env must be created and initialized correctly in the container
     - instead of activating the `mri_tools_env`, for the GNLC, we need to activate the `grad_unwarp` env, combine them, or create a separate container
-- additionally, the script path is currently hard-coded as $0 does not work inside the container (not the best way to do this)
+- additionally, the script path is currently hard-coded in gnlc_slurm_mag.sh as $0 does not work inside the container (not the best way to do this)
 
 
 # Hints:
@@ -95,3 +95,5 @@ examples:
 - each JSON file is updated after the processing to reflect the corrected state of the image
 
 - some more arguments were added for this script (mostly to account for specific needs of the R2 processing workflow): -dep -job-name -log
+
+- need to use `FSL --version <version>` as `SCWRAP fsl <version>` does not initialize on the SLURM cluster and `sc fsl <version>` does not transfer the activated conda environment when entering the container

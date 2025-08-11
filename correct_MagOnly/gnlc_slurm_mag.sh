@@ -17,7 +17,7 @@ delete_working_dir=$7 # if true, the working directory will be deleted after pro
 container_path=$8 # optional: path to singularity container
 
 
-FSL_VERSION=6.0.6 # only relevant if running on the host system
+FSL_VERSION=6.0.7.11 # only relevant if running on the host system, Version in the container is specified in the build script
 fn_pattern=$input_dir/*$pattern*.nii
 GNLC_SCRIPT=/data/u_kuegler_software/git/gradient-nonlinearity-correction-scripts/runCorrection.sh
 
@@ -35,7 +35,6 @@ fi
 
 # If container path is specified, run the entire script inside singularity
 if [[ -n "$container_path" && "$container_path" != "--inside-container" ]]; then
-    echo "SCRIPT_PATH: $SCRIPT_PATH"
     echo ">>> Running script inside singularity container: $container_path"
     # Re-execute this script inside the container with a special flag to indicate container execution
     singularity exec "$container_path" "$SCRIPT_PATH" "$input_dir" "$working_dir" "$pattern" "$scanner_name" "$output_dir" "$skip_jacobian" "$delete_working_dir" "--inside-container"
@@ -55,11 +54,11 @@ fi
 if [[ "$inside_container" == "true" ]]; then
     FSL_CMD=""  # No FSL version prefix needed in container
 else
-    FSL_CMD="sc fsl $FSL_VERSION"  # Use FSL version on host
+    FSL_CMD="FSL --version $FSL_VERSION" # Use FSL version on host
 fi
 
 # make grad_unwarp environment available (only on host)
-# TODO: this conda environment properties must be added to the environment in the container as well
+# TODO: this conda environment must be added to the container as well
 if [[ "$inside_container" == "false" ]]; then
     source ~/bash.conda
     conda activate grad_unwarp
