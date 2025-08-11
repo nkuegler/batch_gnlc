@@ -2,6 +2,38 @@
 Scripts to run Gradient Nonlinearity correction on a batch of files using the HCP pipeline or the NoGradWrap SPM module
 
 
+## Setting up conda environment
+
+- needed repositories: 
+    - Gitlab [gradient-nonlinearity-correction-scripts](https://gitlab.gwdg.de/cbs-neurophy/gradient-nonlinearity-correction-scripts)
+    - Github [gradunwarp](https://github.com/Washington-University/gradunwarp/tree/master)
+
+```
+### clone from Luke's Gitlab repository
+cd /path/to/your/gitdir
+git clone --recurse-submodules git@gitlab.gwdg.de:cbs-neurophy/gradient-nonlinearity-correction-scripts.git
+
+cd gradient-nonlinearity-correction-scripts
+conda create -n grad_unwarp python=3.11
+conda activate grad_unwarp
+cd gradunwarp.source
+pip install -r requirements.txt
+pip install -e . 
+cd ..
+
+
+### clone from the original gradunwarp repository
+git clone git@github.com:Washington-University/gradunwarp.git
+
+cd gradunwarp
+conda create -n grad_unwarp python=3.11
+conda activate grad_unwarp
+pip install -r requirements.txt
+pip install -e . 
+cd ..
+```
+
+
 ## Explanation and usage of files
 
 ### Alina (GNLC of qMRI maps)
