@@ -259,6 +259,10 @@ fi
 
 # Find all anat directories in the BIDS-like structure
 echo "Searching for anat directories in: $parent_dir"
+
+# Normalize parent_dir to ensure it ends with a slash for consistent path matching
+parent_dir="${parent_dir%/}/"
+
 if [[ ${#subject_array[@]} -gt 0 ]]; then
     echo "Filtering for subjects: ${subject_array[*]}"
     if [[ ${#session_array[@]} -gt 0 ]]; then
@@ -272,7 +276,7 @@ if [[ ${#subject_array[@]} -eq 0 ]]; then
     # No subject filter - find all anat directories
     while IFS= read -r -d '' anat_dir; do
         anat_dirs+=("$anat_dir")
-    done < <(find "$parent_dir" -maxdepth 3 -type d -path "*/sub-*/ses-*/anat" -print0 2>/dev/null)
+    done < <(find "$parent_dir" -maxdepth 3 -type d -path "${parent_dir}sub-*/ses-*/anat" -print0 2>/dev/null)
 else
     # Filter by specified subjects and optionally sessions
     for subject in "${subject_array[@]}"; do
@@ -280,13 +284,13 @@ else
             # No session filter - find all sessions for this subject
             while IFS= read -r -d '' anat_dir; do
                 anat_dirs+=("$anat_dir")
-            done < <(find "$parent_dir" -maxdepth 3 -type d -path "*/${subject}/ses-*/anat" -print0 2>/dev/null)
+            done < <(find "$parent_dir" -maxdepth 3 -type d -path "${parent_dir}${subject}/ses-*/anat" -print0 2>/dev/null)
         else
             # Filter by specific sessions for this subject
             for session in "${session_array[@]}"; do
                 while IFS= read -r -d '' anat_dir; do
                     anat_dirs+=("$anat_dir")
-                done < <(find "$parent_dir" -maxdepth 3 -type d -path "*/${subject}/${session}/anat" -print0 2>/dev/null)
+                done < <(find "$parent_dir" -maxdepth 3 -type d -path "${parent_dir}${subject}/${session}/anat" -print0 2>/dev/null)
             done
         fi
     done
