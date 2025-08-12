@@ -129,3 +129,5 @@ examples:
 - some more arguments were added for this script (mostly to account for specific needs of the R2 processing workflow): -dep -job-name -log
 
 - need to use `FSL --version <version>` as `SCWRAP fsl <version>` does not initialize on the SLURM cluster and `sc fsl <version>` does not transfer the activated conda environment when entering the container
+
+- `runCorrection.sh` and `gradunwarp` check if the `FSLDIR` variable is set. As SCWRAP only executes commands in the container when needed, this `FSLDIR` is not set all the time. Therefore, the script crashed. If there is not custom container, we need to use the `FSL` environment or the `sc fsl` container including the conda initialization and activation of the correct environment, every time we enter the container
