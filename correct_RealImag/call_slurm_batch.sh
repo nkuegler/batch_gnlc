@@ -20,7 +20,7 @@ OPTIONS:
     -w | --workingdir: use persistent working directories (not deleted after processing)
     -d | --delete-workdir: delete working directory after processing
     -p PATTERN | --pattern PATTERN: file pattern to match (optional, default: *_MPM.nii)
-    -t SECONDS | --delay SECONDS: delay between job submissions in seconds (default: 3)
+    -t SECONDS | --delay SECONDS: delay between job submissions in seconds (default: 1)
     -sub SUBJECTS | --subjects SUBJECTS: comma-separated list (no spaces!) of subjects to process (e.g., sub-001,sub-002)
     -ses SESSIONS | --sessions SESSIONS: comma-separated list (no spaces!) of sessions to process (e.g., ses-01,ses-02)
                                         Note: -ses requires -sub to be specified
@@ -72,7 +72,7 @@ output_dir=""
 use_workingdir=false
 delete_workdir=false
 pattern=""
-delay=3
+delay=1
 dry_run=false
 scanner_name=""
 parent_dir=""
