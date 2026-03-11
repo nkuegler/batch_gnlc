@@ -33,6 +33,10 @@ pip install -e .
 cd ..
 ```
 
+> Note: Make sure to adjust the paths (currently hard-coded) in the scripts and change the output directory for saving the logs to an existing directory (usually in the SLURM scripts `SBATCH -o`)
+
+
+> Important, when using the Gitlab version: Make sure to check out the main branch of the `gradunwarp` repository!! Luke's repository clones a specific commit, which is deprecated. This will fail when running `pip install -e .` as the pyproject.toml is missing in this status of the repository.
 
 ## Explanation and usage of files
 
@@ -63,7 +67,7 @@ cd ..
 #### How to submit correction as SLURM jobs
 
 ```
-./call_slurm_batch.sh -w -d -p "*loraksRsos*_MPM.nii" -o /data/pt_02262/data/TH_bids/bids/derivatives/LORAKS_LCPCA_distCorr Terra /data/pt_02262/data/TH_bids/bids/derivatives/LORAKS_LCPCA/
+./call_slurm_batch.sh -w -d -p "*loraksRsos*_MPM.nii" -o /data/pt_02262/data/TH_bids/bids/derivatives/LORAKS/derivatives/LCPCA_distCorr Terra /data/pt_02262/data/TH_bids/bids/derivatives/LORAKS/derivatives/LCPCA/
 ```
 - The flag `-w` specifies that a working directory is created inside each session folder in the output directory. If it is not set, the script creates temporary directories in `/tmp`.
     - If `-w` is set, the working directory will not be deleted at the end of the processing unless the `-d` flag is also set.
