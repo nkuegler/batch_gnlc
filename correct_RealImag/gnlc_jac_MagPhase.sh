@@ -30,7 +30,7 @@ if [ ! -d "$undistorted_dir" ]; then
     exit 1
 fi
 
-echo "Applying jacobian modulation and calculating magnitude and phase for files matching for $pattern files in: $undistorted_dir"
+echo "Applying jacobian modulation and calculating magnitude and phase for files matching $pattern in: $undistorted_dir"
 find "$undistorted_dir" -maxdepth 1 -type f -name "*${pattern}*_part-resReal_*_desc-undistorted.nii*" -print0 | \
 while IFS= read -r -d '' real_file; do
     imag_file="${real_file/part-resReal/part-resImag}"
@@ -62,7 +62,7 @@ while IFS= read -r -d '' real_file; do
         FSL --version $FSL_VERSION fslmaths "$imag_file" -mul $working_dir/warp_jacobian.nii.gz "$imag_file_jac"
 
         # Transfer data back into Magnitude and Phase images
-        mrcalc "$real_file" "$imag_file" -complex "$resComplex_file"
+        mrcalc "$real_file_jac" "$imag_file_jac" -complex "$resComplex_file"
         mrcalc "$resComplex_file" -abs "$resMag_file"
         mrcalc "$resComplex_file" -phase "$resPhase_file"
     else
