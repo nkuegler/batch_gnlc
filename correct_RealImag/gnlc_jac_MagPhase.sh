@@ -33,7 +33,7 @@ ensure_nii() {
     local nii
     nii="$(to_nii "$f")"
     if [[ -f "${nii}.gz" ]]; then
-        gunzip -f "${nii}.gz" 2>/dev/null || true
+        gunzip -f "${nii}.gz" >/dev/null 2>&1 || true
     fi
     echo "$nii"
 }
