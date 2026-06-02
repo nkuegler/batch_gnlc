@@ -24,6 +24,7 @@ OPTIONS:
     -sub SUBJECTS | --subjects SUBJECTS: comma-separated list (no spaces!) of subjects to process (e.g., sub-001,sub-002)
     -ses SESSIONS | --sessions SESSIONS: comma-separated list (no spaces!) of sessions to process (e.g., ses-01,ses-02)
                                         Note: -ses requires -sub to be specified
+    --debug-mode: enable debug mode (show terminal output immediately, otherwise buffered; default: disabled)
     --dry-run: show commands that would be executed without actually submitting jobs
 
 ARGUMENTS:
@@ -79,6 +80,7 @@ delete_workdir=false
 pattern=""
 delay=1
 dry_run=false
+debug_mode=false
 scanner_name=""
 parent_dir=""
 subjects=""
@@ -121,6 +123,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dry-run)
             dry_run=true
+            shift
+            ;;
+        --debug-mode)
+            debug_mode=true
             shift
             ;;
         -*)
@@ -335,6 +341,9 @@ for anat_path in "${anat_dirs[@]}"; do
     fi
     if [[ -n "$pattern" ]]; then
         CMD_ARGS="$CMD_ARGS -p \"$pattern\""
+    fi
+    if [[ "$debug_mode" == "true" ]]; then
+        CMD_ARGS="$CMD_ARGS -m" # -m = --debug-mode in slurm_gnlc_proc.sh
     fi
     
     # Prepare SLURM command

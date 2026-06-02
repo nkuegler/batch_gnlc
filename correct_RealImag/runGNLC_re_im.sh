@@ -21,6 +21,7 @@ OPTIONS:
 	-w DIRECTORY | --workingdir DIRECTORY: working directory for output files
 	-d | --delete-workdir: delete working directory after processing (overrides default behavior)
 	-o DIRECTORY | --output DIRECTORY: output directory for corrected magnitude files (default: <parent_directory>/corr_MagPh)
+	--debug-mode: enable debug mode (show terminal output immediately, otherwise buffered; default: disabled)
 
 AUTHOR:
 	Niklas Kuegler (kuegler@cbs.mpg.de)
@@ -32,6 +33,7 @@ pattern="*_MPM.nii"
 workingdir=""
 output_dir=""
 delete_workdir=false
+debug_mode=false
 
 # Give a hint if no arguments are provided
 if [ $# -eq 0 ]; then
@@ -41,7 +43,7 @@ if [ $# -eq 0 ]; then
 fi
 
 # Read optional command line arguments
-TEMP=$(getopt -o 'hp:w:o:d' --long 'help,pattern:,workingdir:,output:,delete-workdir' -n "$(basename $0)" -- "$@")
+TEMP=$(getopt -o 'hp:w:o:d' --long 'help,pattern:,workingdir:,output:,delete-workdir,debug-mode' -n "$(basename $0)" -- "$@")
 if [ $? -ne 0 ]; then
     echo "error: not all input arguments could be processed." >&2
     exit 1
@@ -78,6 +80,11 @@ while true; do
         '-o'|'--output')
             output_dir="$2"
             shift 2
+            continue
+        ;;
+        '--debug-mode')
+            debug_mode=true
+            shift
             continue
         ;;
         '--')
@@ -211,44 +218,61 @@ echo "----------"
 ####################
 
 ### run GNLC for MTw, PDw, T1w (real and imaginary images together) directly in workingdir
-contrasts=("MTw" "PDw" "T1w")
+contrasts=("PDw" "T1w" "MTw") 
+# contrasts=("ernst")
 
 # Parallelize GNLC jobs for each contrast
 pids=()
 files=()
 error_files=()
 
-echo ">>> Running GNLC for contrasts: ${contrasts[*]}"
-echo "!!! The terminal output will be hold back until all jobs are finished !!!"
+if [ "$debug_mode" = true ]; then
+    # Debug mode: show output immediately without buffering
+    echo ">>> Running GNLC for contrasts: ${contrasts[*]} (debug mode enabled)"
+    for contrast in "${contrasts[@]}"; do
+        # Run without buffering stdout/stderr to show output immediately
+        "$script_dir/gnlc_jac_MagPhase.sh" "$workingdir" "$workingdir/wd_$contrast" "$contrast" "$scanner_name" &
+        pids+=($!)
+    done
 
-for contrast in "${contrasts[@]}"; do
-    outfile=$(mktemp)
-    errorfile=$(mktemp)
-    files+=("$outfile")
-    error_files+=("$errorfile")
-    "$script_dir/gnlc_jac_MagPhase.sh" "$workingdir" "$workingdir/wd_$contrast" "$contrast" "$scanner_name" > "$outfile" 2> "$errorfile" & # redirect only stdout and stderr to temporary files
-    pids+=($!)
-done
+    # Wait for all background jobs to finish
+    for pid in "${pids[@]}"; do
+        wait "$pid"
+    done
+else
+    # Standard mode: buffer output and display after jobs complete
+    echo ">>> Running GNLC for contrasts: ${contrasts[*]}"
+    echo "!!! The terminal output will be hold back until all jobs are finished !!!"
 
-# Wait for all background jobs to finish
-for pid in "${pids[@]}"; do
-    wait "$pid"
-done
+    for contrast in "${contrasts[@]}"; do
+        outfile=$(mktemp)
+        errorfile=$(mktemp)
+        files+=("$outfile")
+        error_files+=("$errorfile")
+        "$script_dir/gnlc_jac_MagPhase.sh" "$workingdir" "$workingdir/wd_$contrast" "$contrast" "$scanner_name" > "$outfile" 2> "$errorfile" & # redirect only stdout and stderr to temporary files
+        pids+=($!)
+    done
 
-# Once done, output all results and check for errors. Remove temporary files.
-for i in "${!files[@]}"; do
-    echo "========="
-    echo "stdout for job $((i+1)):"
-    cat "${files[$i]}"
-    
-    # Check if there were any errors
-    if [ -s "${error_files[$i]}" ]; then
-        echo "stderr for job $((i+1)):"
-        cat "${error_files[$i]}" >&2
-    fi
-    
-    rm -f "${files[$i]}" "${error_files[$i]}"
-done
+    # Wait for all background jobs to finish
+    for pid in "${pids[@]}"; do
+        wait "$pid"
+    done
+
+    # Once done, output all results and check for errors. Remove temporary files.
+    for i in "${!files[@]}"; do
+        echo "========="
+        echo "stdout for job $((i+1)):"
+        cat "${files[$i]}"
+        
+        # Check if there were any errors
+        if [ -s "${error_files[$i]}" ]; then
+            echo "stderr for job $((i+1)):"
+            cat "${error_files[$i]}" >&2
+        fi
+        
+        rm -f "${files[$i]}" "${error_files[$i]}"
+    done
+fi
 
 echo
 echo ">>> GNLC processing completed for all contrasts."

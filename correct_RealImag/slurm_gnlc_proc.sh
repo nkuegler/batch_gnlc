@@ -12,8 +12,9 @@ WORKING_DIR=""
 PATTERN=""
 OUTPUT_DIR=""
 DELETE_WORKDIR=false
+DEBUG_MODE=false
 
-while getopts "w:p:o:d" opt; do
+while getopts "w:p:o:dm" opt; do
     case $opt in
         w)
             WORKING_DIR="$OPTARG"
@@ -26,6 +27,9 @@ while getopts "w:p:o:d" opt; do
             ;;
         d)
             DELETE_WORKDIR=true
+            ;;
+        m)
+            DEBUG_MODE=true
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
@@ -87,6 +91,9 @@ if [ -n "$WORKING_DIR" ]; then
 fi
 if [ "$DELETE_WORKDIR" = true ]; then
     CMD_ARGS="$CMD_ARGS -d"
+fi
+if [ "$DEBUG_MODE" = true ]; then
+    CMD_ARGS="$CMD_ARGS --debug-mode"
 fi
 # Always pass the determined output directory to runGNLC_re_im.sh
 CMD_ARGS="$CMD_ARGS -o \"$OUTPUT_DIR\""
