@@ -470,6 +470,8 @@ for anat_path in "${anat_dirs[@]}"; do
             fi
             if [[ -n "$custom_log_dir" ]]; then
                 slurm_cmd="$slurm_cmd -o ${custom_log_dir}%j.out"
+            else
+                slurm_cmd="$slurm_cmd -o ${CONFIG_MAG_ONLY_SLURM_LOG_DIR}%j.out"
             fi
             slurm_cmd="$slurm_cmd $dependency_option \"$slurm_script\" \"$anat_path\" \"$working_dir_contrast\" \"$file_pattern\" \"$scanner_name\" \"$target_output_dir\" \"$no_jacobian\" \"$delete_workdir\"" # \"$container_path\""
 
