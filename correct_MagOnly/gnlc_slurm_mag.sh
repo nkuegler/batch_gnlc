@@ -4,8 +4,8 @@
 #SBATCH -c 16					# 16 cores
 #SBATCH --mem 32G				# estimated 32G RAM
 #SBATCH --time 90				# estimated 90 minutes maximum
-#SBATCH -o /data/u_kuegler_software/git/batch_gnlc/correct_MagOnly/logs/%j.out	# redirect the output
 #
+## logfile output specified in call_slurm_batch_magn.sh
 
 input_dir=$1
 working_dir=$2
@@ -16,13 +16,17 @@ skip_jacobian=$6 # if true, jacobian modulation will be skipped
 delete_working_dir=$7 # if true, the working directory will be deleted after processing
 container_path=$8 # optional: path to singularity container
 
+# Load shared config from repo root
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/config.sh"
+
 
 FSL_VERSION=6.0.7.11 # only relevant if running on the host system, Version in the container is specified in the build script
 fn_pattern=$input_dir/*$pattern*.nii
-GNLC_SCRIPT=/data/u_kuegler_software/git/gradient-nonlinearity-correction-scripts/runCorrection.sh
+GNLC_SCRIPT=$CONFIG_GRAD_NONL_CORR_SCRIPTS/runCorrection.sh
 
 # Specify the absolute path of this script (for re-executing the script inside the container)
-SCRIPT_PATH="/data/u_kuegler_software/git/batch_gnlc/correct_MagOnly/gnlc_slurm_mag.sh"
+SCRIPT_PATH=$CONFIG_REPO_DIR/correct_MagOnly/gnlc_slurm_mag.sh
 
 if [[ "$container_path" != "--inside-container" ]]; then
     echo "input_dir: $input_dir"

@@ -57,8 +57,6 @@ AUTHOR:
 "
 }
 
-
-
 # Key Features:
 # Error Checking: Validates that paths exist before submitting jobs
 # Progress Tracking: Shows which path is being processed (e.g., "Processing path 2/5")
@@ -66,6 +64,13 @@ AUTHOR:
 # Dry Run Mode: Test your commands before actually submitting
 # Comprehensive Logging: Clear output showing what's happening
 # Automatic Directory Creation: Creates the working directory if it doesn't exist
+
+
+# Load shared config from repo root
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/config.sh"
+
+SLURM_PARTITIONS="short,group_servers,gr_weiskopf"
 
 # Default parameters
 output_dir=""
@@ -333,7 +338,7 @@ for anat_path in "${anat_dirs[@]}"; do
     fi
     
     # Prepare SLURM command
-    slurm_cmd="sbatch -p short,group_servers,gr_weiskopf \"$slurm_script\" $CMD_ARGS \"$scanner_name\" \"$anat_path\""                
+    slurm_cmd="sbatch -p \"$SLURM_PARTITIONS\" -o \"${CONFIG_REAL_IMAG_SLURM_LOG_DIR}%j.out\" \"$slurm_script\" $CMD_ARGS \"$scanner_name\" \"$anat_path\""   
 
     # echo "Command: $slurm_cmd"
     

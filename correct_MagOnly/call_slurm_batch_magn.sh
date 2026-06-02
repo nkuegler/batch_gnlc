@@ -64,6 +64,10 @@ AUTHOR:
 "
 }
 
+# Load shared config from repo root
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/config.sh"
+
 # Default parameters
 contrasts="PDw,T1w,MTw"
 pattern="mag*_MPM"

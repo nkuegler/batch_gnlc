@@ -40,7 +40,7 @@ ensure_nii() {
 
 echo "Running gradient nonlinearity correction on files matching:" 
 echo "$fn_pattern"
-FSL --version $FSL_VERSION /data/u_kuegler_software/git/gradient-nonlinearity-correction-scripts/runCorrection.sh -w $working_dir $scanner_name $fn_pattern
+FSL --version $FSL_VERSION $CONFIG_GRAD_NONL_CORR_SCRIPTS/runCorrection.sh -w $working_dir $scanner_name $fn_pattern
 # will save the results in input_dir/undistorted
 echo
 

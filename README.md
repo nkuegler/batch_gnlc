@@ -38,6 +38,12 @@ cd ..
 
 > Important, when using the Gitlab version: Make sure to check out the main branch of the `gradunwarp` repository!! Luke's repository clones a specific commit, which is deprecated. This will fail when running `pip install -e .` as the pyproject.toml is missing in this status of the repository.
 
+## What to do before running the scripts
+
+- Adjust the paths in the config file to match to your data locations.
+
+
+
 ## Explanation and usage of files
 
 ### Alina (GNLC of qMRI maps)
