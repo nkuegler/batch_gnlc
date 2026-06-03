@@ -313,8 +313,8 @@ for anat_path in "${anat_dirs[@]}"; do
             session_workdir="$target_output_dir/wd"
         fi
         
-        # Check if results already exist (look for *desc-undistortedJac.nii files)
-        existing_files=$(find "$target_output_dir" -maxdepth 1 -type f -name "*desc-undistortedJac.nii*" 2>/dev/null | wc -l || echo "0")
+        # Check if results already exist (look for *desc-undistorted*.nii files)
+        existing_files=$(find "$target_output_dir" -maxdepth 1 -type f -name "*desc-undistorted*.nii*" 2>/dev/null | wc -l || echo "0")
         if [[ $existing_files -gt 0 ]]; then
             echo "INFO: Found $existing_files existing output files in $target_output_dir. Skipping."
             ((skipped_sessions++))
