@@ -80,6 +80,9 @@ cd ..
     - The working directory in `/tmp` will always be deleted at the end.
 
 
+> [!TIP]
+> This documentation is not complete. For the full list of available flags and their description, please check the documentation in `call_slurm_batch.sh` and `call_slurm_batch_magn.sh`. You can also check the help message of the scripts by calling them with the `-h` flag.
+
 examples:
 ```
 # Basic usage with Terra scanner (use temporary working directory)

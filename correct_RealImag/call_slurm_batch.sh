@@ -21,6 +21,7 @@ OPTIONS:
     -d | --delete-workdir: delete working directory after processing
     -p PATTERN | --pattern PATTERN: file pattern to match (optional, default: *_MPM.nii)
     -t SECONDS | --delay SECONDS: delay between job submissions in seconds (default: 1)
+    -seq | --sequential: submit jobs sequentially with dependencies (default: parallel submission)
     -sub SUBJECTS | --subjects SUBJECTS: comma-separated list (no spaces!) of subjects to process (e.g., sub-001,sub-002)
     -ses SESSIONS | --sessions SESSIONS: comma-separated list (no spaces!) of sessions to process (e.g., ses-01,ses-02)
                                         Note: -ses requires -sub to be specified
@@ -79,6 +80,7 @@ use_workingdir=false
 delete_workdir=false
 pattern=""
 delay=1
+seq_mode=false
 dry_run=false
 debug_mode=false
 scanner_name=""
@@ -112,6 +114,10 @@ while [[ $# -gt 0 ]]; do
         -t|--delay)
             delay="$2"
             shift 2
+            ;;
+        -seq|--sequential)
+            seq_mode=true
+            shift
             ;;
         -sub|--subjects)
             subjects="$2"
@@ -277,6 +283,10 @@ if [[ ! -f "$slurm_script" ]]; then
     exit 1
 fi
 
+if [[ "$seq_mode" == "true" ]]; then
+    echo "SEQUENTIAL submission mode enabled: Jobs will be submitted with dependencies to run one after the other."
+fi
+
 echo "=========================================="
 # echo "GNLC Batch Job Submission"
 # echo "=========================================="
@@ -291,6 +301,7 @@ echo "=========================================="
 # Counter for job numbering
 job_counter=1
 skipped_sessions=0
+previous_job_id=""
 
 # Cycle through each anat directory and submit SLURM job
 for anat_path in "${anat_dirs[@]}"; do
@@ -347,7 +358,14 @@ for anat_path in "${anat_dirs[@]}"; do
     fi
     
     # Prepare SLURM command
-    slurm_cmd="sbatch -p \"$SLURM_PARTITIONS\" -o \"${CONFIG_REAL_IMAG_SLURM_LOG_DIR}%j.out\" \"$slurm_script\" $CMD_ARGS \"$scanner_name\" \"$anat_path\""   
+    slurm_cmd="sbatch -p \"$SLURM_PARTITIONS\" -o \"${CONFIG_REAL_IMAG_SLURM_LOG_DIR}%j.out\""
+    
+    # Add dependency if sequential mode is enabled
+    if [[ "$seq_mode" == "true" && -n "$previous_job_id" ]]; then
+        slurm_cmd="$slurm_cmd --dependency=afterany:$previous_job_id"
+    fi
+    
+    slurm_cmd="$slurm_cmd \"$slurm_script\" $CMD_ARGS \"$scanner_name\" \"$anat_path\""   
 
     # echo "Command: $slurm_cmd"
     
@@ -355,6 +373,12 @@ for anat_path in "${anat_dirs[@]}"; do
         # Submit the job
         out=$(eval $slurm_cmd)
         echo "$out"
+        
+        # Extract job ID for sequential mode
+        if [[ "$seq_mode" == "true" ]]; then
+            # sbatch output format: "Submitted batch job <job_id>"
+            previous_job_id=$(echo "$out" | grep -oP 'Submitted batch job \K[0-9]+')
+        fi
         
         # Add delay between submissions (except for the last job)
         if [[ $job_counter -lt ${#anat_dirs[@]} ]]; then
