@@ -23,7 +23,7 @@ OPTIONS:
     -dep JOBID | --dependency JOBID: submit all jobs with dependency on successful completion of the specified job ID
     -job-name JOBNAME: specify a custom job name for the submitted job (only valid when submitting a single job)
     -log LOGFILEDIR | --logfiledir LOGFILEDIR: specify a custom log directory for SLURM job output (make sure to include a trailing slash, e.g., /path/to/logs/)
-    -container CONTAINERPATH | --container-path CONTAINERPATH: path to singularity container for running the processing
+    -container CONTAINERPATH | --container-path CONTAINERPATH: path to singularity container for running the processing (CURRENTLY NOT WORKING)
     --nj | --no-jacobian: skip jacobian intensity correction (set this flag when correcting quantitative maps)
     --d | --delete-workdir: delete working directories after processing
     --dry-run: show commands that would be executed without actually submitting jobs
