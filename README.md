@@ -31,7 +31,8 @@ pip install -e .
 cd ..
 ```
 
-> [!CAUTION] Common mistake: When using the Gitlab version, make sure to check out the `master` branch of the `gradunwarp` repository! The `gradient-nonlinearity-correction-scripts` repository clones a specific commit (`ac8dbe1c`), which is deprecated. This will fail when running `pip install -e .` as the pyproject.toml is missing in this status of the repository.
+> [!CAUTION] 
+> Common mistake: When using the Gitlab version, make sure to check out the `master` branch of the `gradunwarp` repository! The `gradient-nonlinearity-correction-scripts` repository clones a specific commit (`ac8dbe1c`), which is deprecated. This will fail when running `pip install -e .` as the pyproject.toml is missing in this status of the repository.
 
 
 3. Configure paths in `config.sh` to match your system:
@@ -57,7 +58,8 @@ Choose the appropriate workflow based on your data type:
 
 Main entry point: `correct_RealImag/call_slurm_batch.sh`
 
-> [!HINT] If you want to process the GNLC locally (not as batch job on the SLURM cluster), `runGNLC_re_im.sh` should work as a stand-alone. Please check the documentation within the script.
+> [!NOTE] 
+> If you want to process the GNLC locally (not as batch job on the SLURM cluster), `runGNLC_re_im.sh` should work as a stand-alone. Please check the documentation within the script.
 
 **Basic usage:**
 ```bash
@@ -87,7 +89,8 @@ Main entry point: `correct_RealImag/call_slurm_batch.sh`
 
 Main entry point: `correct_MagOnly/call_slurm_batch_magn.sh`
 
-> [!HINT] If you want to process the GNLC locally (not as batch job on the SLURM cluster), please `gnlc_slurm_mag.sh` should work as a stand-alone. Please check the documentation within the script.
+> [!NOTE] 
+> If you want to process the GNLC locally (not as batch job on the SLURM cluster), please `gnlc_slurm_mag.sh` should work as a stand-alone. Please check the documentation within the script.
 
 **Basic usage:**
 ```bash
@@ -111,9 +114,11 @@ Main entry point: `correct_MagOnly/call_slurm_batch_magn.sh`
 
 ## Data Flow
 
-> [!IMPORTANT] There are important differences between the two workflows. Please check the section [Differences between the workflows](#differences-between-the-two-workflows).
+> [!IMPORTANT] 
+> There are important differences between the two workflows. Please check the section [Differences between the workflows](#differences-between-the-two-workflows).
 
-> [!HINT] Before processing a batch of NIfTI files, each corresponding JSON file is checked. The correction is aborted if `NonlinearGradientCorrection: true` in the corresponding JSON.
+> [!NOTE] 
+> Before processing a batch of NIfTI files, each corresponding JSON file is checked. The correction is aborted if `NonlinearGradientCorrection: true` in the corresponding JSON.
 
 ### correct_RealImag Workflow
 
@@ -168,7 +173,8 @@ parent_directory/
 
 ### Supported Scanner Systems
 
-> [!WARNING] The gradient coefficient files (`{name}.grad`) are not provided within the repository as they should be treated confidentially. Please contact your MR physicist or Scanner vendor!
+> [!WARNING] 
+> The gradient coefficient files (`{name}.grad`) are not provided within the repository as they should be treated confidentially. Please contact your MR physicist or Scanner vendor!
 
 - Connectom
 - Prisma_fit
