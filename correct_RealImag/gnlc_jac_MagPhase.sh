@@ -14,7 +14,7 @@ echo "working_dir: $working_dir"
 echo "scanner: $scanner_name"
 
 # make grad_unwarp environment available
-source ~/bash.conda
+source ~/.bashrc.conda
 conda activate grad_unwarp
 
 # Load shared config from repo root

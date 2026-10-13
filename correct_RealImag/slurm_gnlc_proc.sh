@@ -78,7 +78,7 @@ fi
 mkdir -p "$OUTPUT_DIR"
 echo "Using output directory: $OUTPUT_DIR"
 
-source ~/bash.conda
+source ~/.bashrc.conda
 conda activate grad_unwarp
 
 # Build command arguments

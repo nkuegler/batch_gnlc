@@ -21,7 +21,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repo_root/config.sh"
 
 
-FSL_VERSION=6.0.7.11 # only relevant if running on the host system, Version in the container is specified in the build script
+FSL_VERSION=6.0.7.13 # only relevant if running on the host system, Version in the container is specified in the build script
 fn_pattern=$input_dir/*$pattern*.nii
 GNLC_SCRIPT=$CONFIG_GRAD_NONL_CORR_SCRIPTS/runCorrection.sh
 
@@ -64,7 +64,7 @@ fi
 # make grad_unwarp environment available (only on host)
 # TODO: this conda environment must be added to the container as well
 if [[ "$inside_container" == "false" ]]; then
-    source ~/bash.conda
+    source ~/.bashrc.conda
     conda activate grad_unwarp
 fi
 
