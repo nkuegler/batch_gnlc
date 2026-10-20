@@ -18,7 +18,13 @@ source ~/.bashrc.conda
 conda activate grad_unwarp
 
 # Load shared config from repo root
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Under SLURM, BASH_SOURCE points to the spooled copy of this script (/var/spool/slurmd/...),
+# so the repo root is taken from CONFIG_REPO_DIR, exported by the calling script (sbatch --export=ALL).
+if [[ -n "$CONFIG_REPO_DIR" ]]; then
+    repo_root="${CONFIG_REPO_DIR%/}"
+else
+    repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
 source "$repo_root/config.sh"
 
 to_nii() {
